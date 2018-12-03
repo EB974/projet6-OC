@@ -20,7 +20,7 @@
             tools:src="@drawable/ic_goforlunch"
             android:layout_gravity="center"
             android:paddingTop="20dp"
-            android:contentDescription="@string/app_icone"/>
+            android:contentDescription="@string/app_icone" />
 
         <TextView
             android:layout_width="wrap_content"
