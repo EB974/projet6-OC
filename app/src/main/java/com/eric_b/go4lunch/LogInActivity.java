@@ -13,11 +13,11 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
-
-import com.eric_b.go4lunch.R;
 import com.eric_b.go4lunch.controller.activity.LunchActivity;
 import com.firebase.ui.auth.AuthUI;
 import java.util.Collections;
+import java.util.Objects;
+
 import com.firebase.ui.auth.ErrorCodes;
 import com.firebase.ui.auth.IdpResponse;
 import com.google.firebase.auth.FirebaseAuth;
@@ -36,7 +36,6 @@ public class LogInActivity extends AppCompatActivity {
 
     //FOR DATA
     private static final int RC_SIGN_IN = 100;
-    //TextView snackText=findViewById(R.id.snackbarText);
 
     @Override
     protected void onCreate( Bundle savedInstanceState) {
@@ -142,7 +141,8 @@ public class LogInActivity extends AppCompatActivity {
             if (resultCode == RESULT_OK)
                 startLunchActivity();
             if (resultCode != RESULT_OK) {
-                Log.d("SignIn","response "+response.getError().getErrorCode());
+                assert response != null;
+                Log.d("SignIn","response "+Objects.requireNonNull(response.getError()).getErrorCode());
                 // If errors
                 if (response == null) {
                     showSnackBar(this.mCoordinatorLayout, getString(R.string.error_authentication_canceled));
