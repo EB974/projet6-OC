@@ -47,7 +47,7 @@ import com.google.common.io.Resources;
 import butterknife.BindView;
 import butterknife.ButterKnife;
 
-public class LunchActivity extends AppCompatActivity implements NavigationView.OnNavigationItemSelectedListener {
+public class LunchActivity extends BaseActivity implements NavigationView.OnNavigationItemSelectedListener {
 
     // DESIGN
     @BindView(R.id.lunch_activity_toolbar)

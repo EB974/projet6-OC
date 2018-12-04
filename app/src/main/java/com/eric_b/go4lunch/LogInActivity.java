@@ -13,6 +13,9 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
+
+import com.eric_b.go4lunch.api.UserHelper;
+import com.eric_b.go4lunch.controller.activity.BaseActivity;
 import com.eric_b.go4lunch.controller.activity.LunchActivity;
 import com.firebase.ui.auth.AuthUI;
 import java.util.Collections;
@@ -27,7 +30,7 @@ import butterknife.BindView;
 import butterknife.ButterKnife;
 
 
-public class LogInActivity extends AppCompatActivity {
+public class LogInActivity extends BaseActivity {
 
     @BindView(R.id.facebook_button_login) RelativeLayout mFacebookLogin;
     @BindView(R.id.google_button_login) RelativeLayout mGoogleLogin;
@@ -36,6 +39,7 @@ public class LogInActivity extends AppCompatActivity {
 
     //FOR DATA
     private static final int RC_SIGN_IN = 100;
+
 
     @Override
     protected void onCreate( Bundle savedInstanceState) {
@@ -137,9 +141,10 @@ public class LogInActivity extends AppCompatActivity {
     private void handleResponseAfterSignIn(int requestCode, int resultCode, Intent data){
         IdpResponse response = IdpResponse.fromResultIntent(data);
         if (requestCode == RC_SIGN_IN) {
-
-            if (resultCode == RESULT_OK)
+            if (resultCode == RESULT_OK){
+                this.createUserInFirestore();
                 startLunchActivity();
+            }
             if (resultCode != RESULT_OK) {
                 assert response != null;
                 Log.d("SignIn","response "+Objects.requireNonNull(response.getError()).getErrorCode());
@@ -152,6 +157,21 @@ public class LogInActivity extends AppCompatActivity {
                     showSnackBar(this.mCoordinatorLayout, getString(R.string.error_unknown_error));
                 }
             }
+        }
+    }
+
+    // --------------------
+    // REST REQUEST
+    // --------------------
+
+    // 1 - Http request that create user in firestore
+    private void createUserInFirestore(){
+
+        if (this.getCurrentUser() != null){
+            String urlPicture = (this.getCurrentUser().getPhotoUrl() != null) ? this.getCurrentUser().getPhotoUrl().toString() : null;
+            String username = this.getCurrentUser().getDisplayName();
+            String uid = this.getCurrentUser().getUid();
+            UserHelper.createUser(uid, username, urlPicture,null,null).addOnFailureListener(this.onFailureListener());
         }
     }
 
