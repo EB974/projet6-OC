@@ -35,8 +35,10 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
+import android.widget.TextView;
 
 
 import com.eric_b.go4lunch.R;
@@ -60,6 +62,12 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
     ViewPager mPager;
     @BindView(R.id.activity_lunch_tabs)
     TabLayout mTab;
+    @BindView(R.id.user_email)
+    TextView mUserMail;
+    @BindView(R.id.user_name)
+    TextView mUserName;
+    @BindView(R.id.user_photo)
+    ImageView mUserPhoto;
     ActionBar mActionBar;
     ActionBarDrawerToggle mToggle;
     EditText mSearchEditText;
@@ -172,11 +180,15 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
 
     // Configure NavigationView
     public void configureNavigationView() {
+        getUserInfo();
         mNavigationView.setNavigationItemSelectedListener(this);
     }
 
-    private void configureViewPagerAndTabs(int setTabs) {
+    private void getUserInfo() {
 
+    }
+
+    private void configureViewPagerAndTabs(int setTabs) {
         // Set Adapter PageAdapter and glue it together
         mPager.setAdapter(new PageAdapter(getSupportFragmentManager()));
 
