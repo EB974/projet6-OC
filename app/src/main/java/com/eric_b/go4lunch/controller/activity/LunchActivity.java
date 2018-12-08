@@ -1,77 +1,86 @@
 package com.eric_b.go4lunch.controller.activity;
 
+import android.Manifest;
+import android.app.FragmentManager;
+import android.app.FragmentTransaction;
 import android.app.SearchManager;
-import android.app.SearchableInfo;
 import android.content.Context;
+import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.PorterDuff;
-import android.graphics.drawable.Drawable;
 import android.net.Uri;
+import android.os.Build;
 import android.support.annotation.NonNull;
-import android.support.constraint.ConstraintLayout;
-import android.support.constraint.Constraints;
 import android.support.design.widget.NavigationView;
 import android.support.design.widget.TabLayout;
 import android.support.v4.app.Fragment;
 import android.support.v4.content.ContextCompat;
+import android.support.v4.content.PermissionChecker;
 import android.support.v4.view.GravityCompat;
 
-import android.support.v4.view.MenuItemCompat;
 import android.support.v4.view.ViewPager;
 import android.support.v4.widget.DrawerLayout;
 
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.ActionBarDrawerToggle;
-import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.support.v7.widget.SearchView;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
-import android.view.Gravity;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.EditText;
-import android.widget.ImageButton;
 import android.widget.ImageView;
-import android.widget.LinearLayout;
-import android.widget.RelativeLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 
+import com.bumptech.glide.Glide;
+import com.bumptech.glide.request.RequestOptions;
+import com.eric_b.go4lunch.LogInActivity;
 import com.eric_b.go4lunch.R;
-import com.eric_b.go4lunch.controller.activity.PageAdapter;
+import com.eric_b.go4lunch.api.GetUserInfo;
+import com.eric_b.go4lunch.api.UserHelper;
+import com.eric_b.go4lunch.controller.fragment.ListViewFragment;
 import com.eric_b.go4lunch.controller.fragment.MapFragment;
-import com.google.common.io.Resources;
+import com.eric_b.go4lunch.modele.User;
+import com.firebase.ui.auth.AuthUI;
+import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.firebase.firestore.DocumentSnapshot;
+
+import java.io.FileDescriptor;
+import java.io.PrintWriter;
+import java.util.List;
+import java.util.Objects;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
+import butterknife.OnPageChange;
+import pub.devrel.easypermissions.EasyPermissions;
 
-public class LunchActivity extends BaseActivity implements NavigationView.OnNavigationItemSelectedListener {
+public class LunchActivity extends BaseActivity implements NavigationView.OnNavigationItemSelectedListener, EasyPermissions.PermissionCallbacks {
 
+    private static final java.lang.Object Object = 12 ;
     // DESIGN
     @BindView(R.id.lunch_activity_toolbar)
     Toolbar mToolbar;
     @BindView(R.id.lunch_activity_drawer_layout)
     DrawerLayout mDrawerLayout;
-    @BindView(R.id.lunch_activity_nav_view)
-    NavigationView mNavigationView;
     @BindView(R.id.lunch_activity_viewpager)
     ViewPager mPager;
     @BindView(R.id.activity_lunch_tabs)
     TabLayout mTab;
-    @BindView(R.id.user_email)
-    TextView mUserMail;
-    @BindView(R.id.user_name)
-    TextView mUserName;
-    @BindView(R.id.user_photo)
-    ImageView mUserPhoto;
     ActionBar mActionBar;
     ActionBarDrawerToggle mToggle;
     EditText mSearchEditText;
     View mView;
+    TextView mUserMail;
+    TextView mUserName;
+    ImageView mUserPhoto;
+
 
     // FRAGMENTS
     private Fragment fragmentMap;
@@ -79,9 +88,19 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
     private Fragment fragmentWorkmates;
 
     // DATAS
+    private static final String PERM_FINE = Manifest.permission.ACCESS_FINE_LOCATION;
+    private static final String PERM_COARSE = Manifest.permission.ACCESS_COARSE_LOCATION;
+    private static final int RC_LOCATION_PERMS = 120;
+    private static final int RC_ALL_PERMS = 130;
+    private static final String PERM_TEL = Manifest.permission.CALL_PHONE;
+    private static final int RC_CALL_PERMS = 110;
     private static final int FRAGMENT_MAP = 0;
     private static final int FRAGMENT_LISTVIEW = 1;
     private static final int FRAGMENT_WORKMATE = 2;
+    private static final String RESTAURANT_ID = "placeId";
+    private static final int SIGN_OUT_TASK = 10;
+    private static final int DELETE_USER_TASK = 20;
+    private static final int UPDATE_USERNAME = 30;
 
     // COLORS ITEMS TABS
     String mUnselectedItemColor;
@@ -93,13 +112,33 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_lunch);
         ButterKnife.bind(this);
+        checkPermissions();
         configureToolBar();
-
         configureDrawerLayout();
-        configureViewPagerAndTabs(0);
+        //configureViewPagerAndTabs();
         configureNavigationView();
 
     }
+
+    private void checkPermissions() {
+        String[] locationPerms = {PERM_FINE, PERM_COARSE};
+        String callPerms = PERM_TEL;
+        String[] allPerms = {PERM_FINE, PERM_COARSE,PERM_TEL};
+
+        if (!EasyPermissions.hasPermissions(this, locationPerms) && !EasyPermissions.hasPermissions(this, callPerms)) {
+            EasyPermissions.requestPermissions(this, getResources().getString(R.string.all_perm_request), RC_ALL_PERMS, allPerms);
+        } else if (!EasyPermissions.hasPermissions(this, locationPerms)) {
+            EasyPermissions.requestPermissions(this, getResources().getString(R.string.localisation_request), RC_LOCATION_PERMS, locationPerms);
+        } else if (!EasyPermissions.hasPermissions(this, callPerms)) {
+            EasyPermissions.requestPermissions(this, getResources().getString(R.string.call_request), RC_CALL_PERMS, callPerms);
+        }
+
+        if (EasyPermissions.hasPermissions(this,locationPerms)){
+            configureViewPagerAndTabs();
+        }
+    }
+
+
 
     @Override
     public boolean onCreateOptionsMenu(final Menu menu) {
@@ -109,6 +148,7 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
         // Associate searchable configuration with the SearchView
         SearchManager searchManager = (SearchManager) getSystemService(Context.SEARCH_SERVICE);
         final SearchView searchView = (SearchView) menu.findItem(R.id.menu_activity_lunch_search).getActionView();
+        assert searchManager != null;
         searchView.setSearchableInfo(searchManager.getSearchableInfo(getComponentName()));
         //searchView.setMaxWidth(mActionBar.getHeight());
 
@@ -151,7 +191,7 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
 
     @Override
     public void onBackPressed() {
-        // 5 - Handle back click to close menu
+        // Handle back click to close menu
         if (this.mDrawerLayout.isDrawerOpen(GravityCompat.START)) {
             this.mDrawerLayout.closeDrawer(GravityCompat.START);
         } else {
@@ -168,6 +208,7 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
         setSupportActionBar(mToolbar);
         mActionBar = getSupportActionBar();
         //mActionBar.setDisplayOptions(ActionBar.DISPLAY_SHOW_CUSTOM);
+        assert mActionBar != null;
         mActionBar.setTitle(R.string.lunch_title);
     }
 
@@ -180,15 +221,37 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
 
     // Configure NavigationView
     public void configureNavigationView() {
-        getUserInfo();
-        mNavigationView.setNavigationItemSelectedListener(this);
+        NavigationView navigationView = findViewById(R.id.lunch_activity_nav_view);
+        navigationView.setNavigationItemSelectedListener(this);
+        View header=navigationView.getHeaderView(0);
+        mUserMail =  header.findViewById(R.id.user_email);
+        mUserName = header.findViewById(R.id.user_name);
+        mUserPhoto = header.findViewById(R.id.user_photo);
+        mUserMail.setText(Objects.requireNonNull(this.getCurrentUser()).getEmail());
+
+        UserHelper.getUser(this.getCurrentUser().getUid()).addOnSuccessListener(new OnSuccessListener<DocumentSnapshot>() {
+            @Override
+            public void onSuccess(DocumentSnapshot documentSnapshot) {
+                User currentUser = documentSnapshot.toObject(User.class);
+                assert currentUser != null;
+                mUserName.setText(currentUser.getUserName());
+                try {
+                    Glide.with(LunchActivity.this)
+                            .load(currentUser.getUserPhoto())
+                            .apply(RequestOptions.circleCropTransform())
+                            .into(mUserPhoto);
+                } catch (Throwable e) {
+                    e.printStackTrace();
+                }
+
+
+            }
+        });
+
     }
 
-    private void getUserInfo() {
 
-    }
-
-    private void configureViewPagerAndTabs(int setTabs) {
+    private void configureViewPagerAndTabs() {
         // Set Adapter PageAdapter and glue it together
         mPager.setAdapter(new PageAdapter(getSupportFragmentManager()));
 
@@ -197,7 +260,7 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
         // Design purpose. Tabs have the same width
         mTab.setTabMode(TabLayout.MODE_FIXED);
         setupTabIcons();
-        TabLayout.Tab tab = mTab.getTabAt(setTabs);
+        TabLayout.Tab tab = mTab.getTabAt(0);
 
         assert tab != null;
         tab.select();
@@ -205,14 +268,14 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
 
 
     private void setupTabIcons() {
-        mTab.getTabAt(0).setIcon(R.drawable.baseline_map_white);
-        mTab.getTabAt(1).setIcon(R.drawable.baseline_view_list_white);
-        mTab.getTabAt(2).setIcon(R.drawable.baseline_people_white);
+        Objects.requireNonNull(mTab.getTabAt(0)).setIcon(R.drawable.baseline_map_white);
+        Objects.requireNonNull(mTab.getTabAt(1)).setIcon(R.drawable.baseline_view_list_white);
+        Objects.requireNonNull(mTab.getTabAt(2)).setIcon(R.drawable.baseline_people_white);
         mUnselectedItemColor = getResources().getString(R.string.unSelectedItemColor);
         mSelectedItemColor = getResources().getString(R.string.selectedItemColor);
-        mTab.getTabAt(0).getIcon().setColorFilter(Color.parseColor(mSelectedItemColor), PorterDuff.Mode.SRC_IN);
-        mTab.getTabAt(1).getIcon().setColorFilter(Color.parseColor(mUnselectedItemColor), PorterDuff.Mode.SRC_IN);
-        mTab.getTabAt(2).getIcon().setColorFilter(Color.parseColor(mUnselectedItemColor), PorterDuff.Mode.SRC_IN);
+        Objects.requireNonNull(Objects.requireNonNull(mTab.getTabAt(0)).getIcon()).setColorFilter(Color.parseColor(mSelectedItemColor), PorterDuff.Mode.SRC_IN);
+        Objects.requireNonNull(Objects.requireNonNull(mTab.getTabAt(1)).getIcon()).setColorFilter(Color.parseColor(mUnselectedItemColor), PorterDuff.Mode.SRC_IN);
+        Objects.requireNonNull(Objects.requireNonNull(mTab.getTabAt(2)).getIcon()).setColorFilter(Color.parseColor(mUnselectedItemColor), PorterDuff.Mode.SRC_IN);
 
         mTab.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
             @Override
@@ -233,17 +296,91 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
         });
     }
 
-
-    /**
-     * Called when an item in the navigation menu is selected.
-     *
-     * @param item The selected item
-     * @return true to display the item as the selected item
-     */
     @Override
     public boolean onNavigationItemSelected(@NonNull MenuItem item) {
-        return false;
+        GetUserInfo getUserInfo = new GetUserInfo(this.getCurrentUser().getUid());
+        switch (item.getItemId()){
+            case R.id.activity_display_restaurant :
+                UserHelper.getUser(this.getCurrentUser().getUid()).addOnSuccessListener(new OnSuccessListener<DocumentSnapshot>() {
+                    @Override
+                    public void onSuccess(DocumentSnapshot documentSnapshot) {
+                        User currentUser = documentSnapshot.toObject(User.class);
+                        assert currentUser != null;
+                        mUserName.setText(currentUser.getUserName());
+                        if (currentUser.getReservedRestaurant()!=null)
+                            startRestaurantDisplayActivity(currentUser.getReservedRestaurant());
+                        else
+                            Toast.makeText(LunchActivity.this, getResources().getText(R.string.no_restaurant),Toast.LENGTH_LONG).show();
+                    }});
+                break;
+            case R.id.activity_settings:
+                break;
+            case R.id.logout:
+                logout();
+                break;
+            default:
+                break;
+        }
+        this.mDrawerLayout.closeDrawer(GravityCompat.START);
+        return true;
+    }
+
+    private void logout() {
+        AuthUI.getInstance()
+                .signOut(this)
+                .addOnSuccessListener(this, this.updateUIAfterRESTRequestsCompleted(SIGN_OUT_TASK));
+    }
+
+    private OnSuccessListener<Void> updateUIAfterRESTRequestsCompleted(final int origin){
+        return new OnSuccessListener<Void>() {
+            @Override
+            public void onSuccess(Void aVoid) {
+                switch (origin){
+                    case UPDATE_USERNAME:
+                        //progressBar.setVisibility(View.INVISIBLE);
+                        break;
+                    case SIGN_OUT_TASK:
+                        Toast.makeText(LunchActivity.this, getResources().getText(R.string.disconnected),Toast.LENGTH_LONG).show();
+                        finish();
+                        startLoginActivity();
+                        break;
+                    case DELETE_USER_TASK:
+                        finish();
+                        break;
+                    default:
+                        break;
+                }
+            }
+        };
+    }
+
+    private void startRestaurantDisplayActivity(String id){
+        Intent intent = new Intent(this, RestaurantDisplay.class);
+        intent.putExtra(RESTAURANT_ID,id);
+        startActivity(intent);
+    }
+
+    private void startLoginActivity(){
+        Intent intent = new Intent(this, LogInActivity.class);
+        startActivity(intent);
     }
 
 
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] perms, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, perms, grantResults);
+
+        // EasyPermissions handles the request result.
+        EasyPermissions.onRequestPermissionsResult(requestCode, perms, grantResults, this);
+
+    }
+
+    @Override
+    public void onPermissionsGranted(int requestCode, @NonNull List<String> perms) {
+        if (requestCode >= 120) configureViewPagerAndTabs();
+    }
+
+    @Override
+    public void onPermissionsDenied(int requestCode, @NonNull List<String> perms) {
+    }
 }
