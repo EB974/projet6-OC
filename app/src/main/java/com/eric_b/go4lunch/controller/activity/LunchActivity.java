@@ -195,7 +195,8 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
         if (this.mDrawerLayout.isDrawerOpen(GravityCompat.START)) {
             this.mDrawerLayout.closeDrawer(GravityCompat.START);
         } else {
-            super.onBackPressed();
+            //super.onBackPressed();
+            Toast.makeText(this, R.string.cant_go_back, Toast.LENGTH_LONG).show();
         }
     }
 
@@ -383,4 +384,6 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
     @Override
     public void onPermissionsDenied(int requestCode, @NonNull List<String> perms) {
     }
+
+
 }
