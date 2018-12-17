@@ -2,44 +2,61 @@ package com.eric_b.go4lunch.controller.activity;
 
 
 import android.Manifest;
-import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.os.Bundle;
-import android.text.TextUtils;
+import android.support.v7.widget.LinearLayoutManager;
+import android.support.v7.widget.RecyclerView;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
-
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.request.RequestOptions;
 import com.eric_b.go4lunch.R;
 import com.eric_b.go4lunch.Utils.PlaceidStream;
+import com.eric_b.go4lunch.View.RestaurantReservedAdapter;
 import com.eric_b.go4lunch.api.MappedRestaurantHelper;
+import com.eric_b.go4lunch.api.RestaurantHelper;
 import com.eric_b.go4lunch.api.UserHelper;
+import com.eric_b.go4lunch.modele.MappedRestaurant;
+import com.eric_b.go4lunch.modele.Restaurant;
 import com.eric_b.go4lunch.modele.User;
+import com.eric_b.go4lunch.modele.UserMin;
 import com.eric_b.go4lunch.modele.placeid.GooglePlaceidPojo;
 import com.eric_b.go4lunch.modele.placeid.Photoid;
+import com.firebase.ui.firestore.FirestoreRecyclerAdapter;
+import com.firebase.ui.firestore.FirestoreRecyclerOptions;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.database.ValueEventListener;
+import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.EventListener;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.FirebaseFirestoreException;
+import com.google.firebase.firestore.Query;
 
+import java.util.AbstractList;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
+import java.util.ListIterator;
+import java.util.Map;
 import java.util.Objects;
+
+import javax.annotation.Nullable;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
 import io.reactivex.observers.DisposableObserver;
-import pub.devrel.easypermissions.EasyPermissions;
 
 
 public class RestaurantDisplay extends BaseActivity {
@@ -61,8 +78,12 @@ public class RestaurantDisplay extends BaseActivity {
     TextView mNoImagetext;
     @BindView(R.id.checkButton)
     ImageView mCheckImageViewButton;
+    @BindView(R.id.reserveRestaurant_RecyclerView)
+    RecyclerView workmateRecyclerView;
 
     private static final String RESTAURANT_ID = "placeId";
+    private static final String USER_NAME = "UserName";
+    private static final String USER_PHOTO = "UserPhoto";
     private DisposableObserver<GooglePlaceidPojo> mPlaceidDisposable;
     private String mGoogleApiKey;
     private String mName, mAdresse, mPhoneNumber, mWebSite;
@@ -70,6 +91,14 @@ public class RestaurantDisplay extends BaseActivity {
     private String mStarColor = "line";
     private boolean mCheck = false;
     private String mRestaurantPlaceId;
+    private FirestoreRecyclerAdapter adapter;
+    private int mNumbStar;
+    private HashMap mReservedList;
+    private int mNumberOfStar;
+    private String mUserName;
+    private String mUserPhoto;
+    private RecyclerView mRecyclerView;
+    private RestaurantReservedAdapter mAdapter;
 
 
     @Override
@@ -79,12 +108,36 @@ public class RestaurantDisplay extends BaseActivity {
         ButterKnife.bind(this);
         mGoogleApiKey = getString(R.string.google_maps_key);
         mRestaurantPlaceId = getIntent().getStringExtra(RESTAURANT_ID);
+        mUserName = getIntent().getStringExtra(USER_NAME);
+        mUserPhoto = getIntent().getStringExtra(USER_PHOTO);
+        mNumberOfStar = 0;
+        mReservedList= new HashMap<String,String>();
+        UserMin userMin = new UserMin();
+
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        final DocumentReference docRef = db.collection("mappedRestaurant").document(mRestaurantPlaceId);
+        docRef.addSnapshotListener(new EventListener<DocumentSnapshot>() {
+            @Override
+            public void onEvent(@Nullable DocumentSnapshot documentSnapshot, @Nullable FirebaseFirestoreException e) {
+                if (e != null) {
+                    Log.w("ressource", "Listen failed.", e);
+                    return;
+                }
+                if (documentSnapshot != null && documentSnapshot.exists()) {
+                    mNumberOfStar = Math.round((Long) documentSnapshot.get("numberOfStar"));
+                    mReservedList= new HashMap<String,String>();
+                    mReservedList.putAll((HashMap<String,String>) documentSnapshot.get("workmatesReservation"));
+                    displayWorkmateList();
+                }
+            }
+        });
         loadDetailAnswers(mRestaurantPlaceId);
         getCurrentUserRest();
         callNumber();
         webDisplay();
         starDisplay();
         checkDisplay();
+        //getWorkmateList();
     }
 
 
@@ -179,10 +232,17 @@ public class RestaurantDisplay extends BaseActivity {
                 if (!mStarColor.equals("yellow")) {
                     mStarImage.setImageResource(R.drawable.ic_star_yellow);
                     mStarColor = "yellow";
+                    mNumberOfStar++;
+                    MappedRestaurantHelper.updateRestaurantNumberOfStar(mRestaurantPlaceId,mNumberOfStar);
                 }
             else{
                     mStarImage.setImageResource(R.drawable.ic_star_line);
-                    mStarColor = "line";}
+                    mStarColor = "line";
+                    if (mNumberOfStar>0){
+                        mNumberOfStar--;
+                        MappedRestaurantHelper.updateRestaurantNumberOfStar(mRestaurantPlaceId,mNumberOfStar);
+                    }
+                }
         }});
     }
 
@@ -194,13 +254,15 @@ public class RestaurantDisplay extends BaseActivity {
                     mCheckImageViewButton.setImageResource(R.drawable.ic_check);
                     mCheck = false;
                     updateUserUnselectedRestaurant();
-                    updateSelectedRestaurant(false, mRestaurantPlaceId);
+                    if(mReservedList.containsKey(mUserName)) mReservedList.remove(mUserName);
+                    updateSelectedRestaurant(false, mRestaurantPlaceId, mNumberOfStar, mReservedList);
                 }
                 else{
                     mCheckImageViewButton.setImageResource(R.drawable.ic_checked);
                     mCheck = true;
                     updateUserSelectedRestaurant();
-                    updateSelectedRestaurant(true,mRestaurantPlaceId);
+                    mReservedList.put(mUserName,mUserPhoto);
+                    updateSelectedRestaurant(true,mRestaurantPlaceId, mNumberOfStar, mReservedList);
                 }
             }});
     }
@@ -212,7 +274,7 @@ public class RestaurantDisplay extends BaseActivity {
     }
 
     private void getCurrentUserRest() {
-        UserHelper.getUser(this.getCurrentUser().getUid()).addOnSuccessListener(new OnSuccessListener<DocumentSnapshot>() {
+        UserHelper.getUser(Objects.requireNonNull(this.getCurrentUser()).getUid()).addOnSuccessListener(new OnSuccessListener<DocumentSnapshot>() {
             @Override
             public void onSuccess(DocumentSnapshot documentSnapshot) {
                 User currentUser = documentSnapshot.toObject(User.class);
@@ -232,30 +294,55 @@ public class RestaurantDisplay extends BaseActivity {
     private void updateUserSelectedRestaurant(){
         if (this.getCurrentUser() != null) {
             UserHelper.updateUserRestaurant(this.mRestaurantPlaceId,this.getCurrentUser().getUid()).addOnFailureListener(this.onFailureListener());
+            UserMin userMin= new UserMin(this.getCurrentUser().getUid());
+            //updateWorkmateList();
         }
     }
 
     //  Update User Selected restaurant
     private void updateUserUnselectedRestaurant(){
         if (this.getCurrentUser() != null) {
+            //updateWorkmateList();
             UserHelper.updateUserRestaurant("",this.getCurrentUser().getUid()).addOnFailureListener(this.onFailureListener());
+
         }
     }
 
-    private void updateSelectedRestaurant(final Boolean reserved, final String restaurantPlaceId){
-        final Task<DocumentSnapshot> mappedRestaurant = MappedRestaurantHelper.getRestaurantReseved(restaurantPlaceId);
+    private void updateSelectedRestaurant(final Boolean reserved, final String restaurantPlaceId,final int numberOfStar,final HashMap<String,String> workmateReservation){
+        final Task<DocumentSnapshot> mappedRestaurant = MappedRestaurantHelper.getRestaurant(restaurantPlaceId);
         mappedRestaurant.addOnSuccessListener(new OnSuccessListener<DocumentSnapshot>() {
             @Override
             public void onSuccess(DocumentSnapshot documentSnapshot) {
-                if(mappedRestaurant.getResult().exists())
-                    MappedRestaurantHelper.updateRestaurantId(restaurantPlaceId,reserved);
-                else {
-                    MappedRestaurantHelper.createRestaurant(restaurantPlaceId, reserved);
-                    MappedRestaurantHelper.updateRestaurantId(restaurantPlaceId,reserved);
+                if(Objects.requireNonNull(mappedRestaurant.getResult()).exists()){
+                    MappedRestaurantHelper.updateRestaurantReserved(restaurantPlaceId,reserved);
+                    MappedRestaurantHelper.updateRestaurantWorkmateList(restaurantPlaceId,workmateReservation);
+                }
+                else{
+                    MappedRestaurantHelper.createRestaurant(restaurantPlaceId, reserved, numberOfStar,workmateReservation);
+                    //MappedRestaurantHelper.updateRestaurantReserved(restaurantPlaceId,reserved);
                 }
             }
         });
+    }
+
+    private void displayWorkmateList(){
+        HashMap<String, String> workmateList = new HashMap<>(mReservedList);
+        if(workmateList.containsKey(mUserName))workmateList.remove(mUserName);
+        mAdapter = new RestaurantReservedAdapter(workmateList, Glide.with(this),mUserName);
+        workmateRecyclerView.setAdapter(mAdapter);
+        workmateRecyclerView.setLayoutManager(new LinearLayoutManager(this));
 
     }
 
+    @Override
+    public void onStart() {
+        super.onStart();
+        //adapter.startListening();
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+        //adapter.stopListening();
+    }
 }

@@ -73,13 +73,16 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
     ViewPager mPager;
     @BindView(R.id.activity_lunch_tabs)
     TabLayout mTab;
-    ActionBar mActionBar;
-    ActionBarDrawerToggle mToggle;
-    EditText mSearchEditText;
+    private ActionBar mActionBar;
+    private ActionBarDrawerToggle mToggle;
+    private EditText mSearchEditText;
     View mView;
-    TextView mUserMail;
-    TextView mUserName;
-    ImageView mUserPhoto;
+    private TextView mUserMail;
+    private TextView mUserNameTextView;
+    private ImageView mUserPhotoImageView;
+    private String mUserName;
+    private String mUserPhoto;
+    private User mCurrentUser;
 
 
     // FRAGMENTS
@@ -98,6 +101,8 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
     private static final int FRAGMENT_LISTVIEW = 1;
     private static final int FRAGMENT_WORKMATE = 2;
     private static final String RESTAURANT_ID = "placeId";
+    private static final String USER_NAME = "UserName";
+    private static final String USER_PHOTO = "UserPhoto";
     private static final int SIGN_OUT_TASK = 10;
     private static final int DELETE_USER_TASK = 20;
     private static final int UPDATE_USERNAME = 30;
@@ -112,12 +117,32 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_lunch);
         ButterKnife.bind(this);
-        checkPermissions();
-        configureToolBar();
-        configureDrawerLayout();
-        //configureViewPagerAndTabs();
-        configureNavigationView();
+        String uid = this.getCurrentUser().getUid();
+        UserHelper.getUser(uid).addOnSuccessListener(new OnSuccessListener<DocumentSnapshot>() {
+            @Override
+            public void onSuccess(DocumentSnapshot documentSnapshot) {
+                mCurrentUser = documentSnapshot.toObject(User.class);
+                assert mCurrentUser != null;
+                mUserName = mCurrentUser.getUserName();
+                mUserPhoto = mCurrentUser.getUserPhoto();
+                configureToolBar();
+                configureDrawerLayout();
+                configureNavigationView();
+                checkPermissions();
+            }
 
+        });
+        //Bundle bundle = new Bundle();
+        //bundle.putString("userName", mUserName);
+        //bundle.putString("userPhoto", mUserPhoto);
+        //MapFragment mapFragment = new MapFragment();
+        //mapFragment.setArguments(bundle);
+
+        //configureToolBar();
+        //configureDrawerLayout();
+        // //configureViewPagerAndTabs();
+        //configureNavigationView();
+        //checkPermissions();
     }
 
     private void checkPermissions() {
@@ -226,36 +251,25 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
         navigationView.setNavigationItemSelectedListener(this);
         View header=navigationView.getHeaderView(0);
         mUserMail =  header.findViewById(R.id.user_email);
-        mUserName = header.findViewById(R.id.user_name);
-        mUserPhoto = header.findViewById(R.id.user_photo);
+        mUserNameTextView = header.findViewById(R.id.user_name);
+        mUserPhotoImageView = header.findViewById(R.id.user_photo);
         mUserMail.setText(Objects.requireNonNull(this.getCurrentUser()).getEmail());
 
-        UserHelper.getUser(this.getCurrentUser().getUid()).addOnSuccessListener(new OnSuccessListener<DocumentSnapshot>() {
-            @Override
-            public void onSuccess(DocumentSnapshot documentSnapshot) {
-                User currentUser = documentSnapshot.toObject(User.class);
-                assert currentUser != null;
-                mUserName.setText(currentUser.getUserName());
+                mUserNameTextView.setText(mUserName);
                 try {
                     Glide.with(LunchActivity.this)
-                            .load(currentUser.getUserPhoto())
+                            .load(mUserPhoto)
                             .apply(RequestOptions.circleCropTransform())
-                            .into(mUserPhoto);
+                            .into(mUserPhotoImageView);
                 } catch (Throwable e) {
                     e.printStackTrace();
                 }
-
-
-            }
-        });
-
     }
 
 
     private void configureViewPagerAndTabs() {
         // Set Adapter PageAdapter and glue it together
-        mPager.setAdapter(new PageAdapter(getSupportFragmentManager()));
-
+        mPager.setAdapter(new PageAdapter(getSupportFragmentManager(),mUserName, mUserPhoto));
         // Glue TabLayout and ViewPager together
         mTab.setupWithViewPager(mPager);
         // Design purpose. Tabs have the same width
@@ -265,6 +279,7 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
 
         assert tab != null;
         tab.select();
+
     }
 
 
@@ -307,9 +322,11 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
                     public void onSuccess(DocumentSnapshot documentSnapshot) {
                         User currentUser = documentSnapshot.toObject(User.class);
                         assert currentUser != null;
-                        mUserName.setText(currentUser.getUserName());
-                        if (currentUser.getReservedRestaurant()!=null)
-                            startRestaurantDisplayActivity(currentUser.getReservedRestaurant());
+                        mUserNameTextView.setText(currentUser.getUserName());
+                        if (currentUser.getReservedRestaurant()!=null){
+                            startRestaurantDisplayActivity(currentUser.getReservedRestaurant(), currentUser.getUserName(),currentUser.getUserPhoto());
+                        }
+
                         else
                             Toast.makeText(LunchActivity.this, getResources().getText(R.string.no_restaurant),Toast.LENGTH_LONG).show();
                     }});
@@ -355,9 +372,11 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
         };
     }
 
-    private void startRestaurantDisplayActivity(String id){
+    private void startRestaurantDisplayActivity(String id, String userName, String userPhoto){
         Intent intent = new Intent(this, RestaurantDisplay.class);
         intent.putExtra(RESTAURANT_ID,id);
+        intent.putExtra(USER_NAME,userName);
+        intent.putExtra(USER_PHOTO,userPhoto);
         startActivity(intent);
     }
 
