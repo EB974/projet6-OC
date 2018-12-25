@@ -47,18 +47,42 @@
             android:text="@string/restaurant_name"
             />
 
+            <ImageView
+                android:id="@+id/starImage1"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignBottom="@+id/restaurantName"
+                android:layout_marginStart="@dimen/margin_restaurant"
+                android:layout_toEndOf="@id/restaurantName"
+                android:contentDescription="@string/like_star"
+                android:paddingStart="10dp"
+                android:paddingEnd="0dp"
+                android:src="@drawable/ic_star_line" />
+
+            <ImageView
+                android:id="@+id/starImage2"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignBottom="@+id/restaurantName"
+                android:layout_marginBottom="0dp"
+                android:layout_toEndOf="@id/starImage1"
+                android:contentDescription="@string/like_star"
+                android:paddingStart="5dp"
+                android:paddingEnd="0dp"
+                android:src="@drawable/ic_star_yellow"
+                android:visibility="invisible"/>
         <ImageView
-            android:id="@+id/starImage"
-            android:contentDescription="@string/like_star"
+            android:id="@+id/starImage3"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_alignBottom="@+id/restaurantName"
-            android:layout_marginStart="@dimen/margin_restaurant"
-            android:layout_toEndOf="@id/restaurantName"
-            android:paddingStart="10dp"
+            android:layout_marginBottom="0dp"
+            android:layout_toEndOf="@id/starImage2"
+            android:contentDescription="@string/like_star"
+            android:paddingStart="5dp"
             android:paddingEnd="0dp"
-            android:src="@drawable/ic_star_line" />
-
+            android:visibility="invisible"
+            android:src="@drawable/ic_star_yellow" />
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

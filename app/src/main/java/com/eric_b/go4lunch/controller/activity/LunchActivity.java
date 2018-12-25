@@ -1,22 +1,16 @@
 package com.eric_b.go4lunch.controller.activity;
 
 import android.Manifest;
-import android.app.FragmentManager;
-import android.app.FragmentTransaction;
 import android.app.SearchManager;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.PorterDuff;
-import android.net.Uri;
-import android.os.Build;
 import android.support.annotation.NonNull;
 import android.support.design.widget.NavigationView;
 import android.support.design.widget.TabLayout;
 import android.support.v4.app.Fragment;
 import android.support.v4.content.ContextCompat;
-import android.support.v4.content.PermissionChecker;
 import android.support.v4.view.GravityCompat;
 
 import android.support.v4.view.ViewPager;
@@ -27,7 +21,6 @@ import android.support.v7.app.ActionBarDrawerToggle;
 import android.os.Bundle;
 import android.support.v7.widget.SearchView;
 import android.support.v7.widget.Toolbar;
-import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
@@ -42,23 +35,19 @@ import com.bumptech.glide.Glide;
 import com.bumptech.glide.request.RequestOptions;
 import com.eric_b.go4lunch.LogInActivity;
 import com.eric_b.go4lunch.R;
+import com.eric_b.go4lunch.Utils.SPAdapter;
+import com.eric_b.go4lunch.api.CompagnyHelper;
 import com.eric_b.go4lunch.api.GetUserInfo;
-import com.eric_b.go4lunch.api.UserHelper;
-import com.eric_b.go4lunch.controller.fragment.ListViewFragment;
-import com.eric_b.go4lunch.controller.fragment.MapFragment;
-import com.eric_b.go4lunch.modele.User;
+import com.eric_b.go4lunch.modele.Compagny;
 import com.firebase.ui.auth.AuthUI;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.firebase.firestore.DocumentSnapshot;
 
-import java.io.FileDescriptor;
-import java.io.PrintWriter;
 import java.util.List;
 import java.util.Objects;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
-import butterknife.OnPageChange;
 import pub.devrel.easypermissions.EasyPermissions;
 
 public class LunchActivity extends BaseActivity implements NavigationView.OnNavigationItemSelectedListener, EasyPermissions.PermissionCallbacks {
@@ -82,7 +71,7 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
     private ImageView mUserPhotoImageView;
     private String mUserName;
     private String mUserPhoto;
-    private User mCurrentUser;
+    private Compagny mCurrentWorkmate;
 
 
     // FRAGMENTS
@@ -110,6 +99,8 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
     // COLORS ITEMS TABS
     String mUnselectedItemColor;
     String mSelectedItemColor;
+    private String mUserRestaurant;
+    private String mUserRestaurantName;
 
 
     @Override
@@ -117,21 +108,31 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_lunch);
         ButterKnife.bind(this);
-        String uid = this.getCurrentUser().getUid();
-        UserHelper.getUser(uid).addOnSuccessListener(new OnSuccessListener<DocumentSnapshot>() {
+        final String uid = this.getCurrentUser().getUid();
+
+        CompagnyHelper.getWorkmate(uid).addOnSuccessListener(new OnSuccessListener<DocumentSnapshot>() {
             @Override
             public void onSuccess(DocumentSnapshot documentSnapshot) {
-                mCurrentUser = documentSnapshot.toObject(User.class);
-                assert mCurrentUser != null;
-                mUserName = mCurrentUser.getUserName();
-                mUserPhoto = mCurrentUser.getUserPhoto();
-                configureToolBar();
-                configureDrawerLayout();
-                configureNavigationView();
+                mCurrentWorkmate = documentSnapshot.toObject(Compagny.class);
+                assert mCurrentWorkmate != null;
+                mUserName = mCurrentWorkmate.getUserName();
+                mUserPhoto = mCurrentWorkmate.getUserPhoto();
+                mUserRestaurant = mCurrentWorkmate.getReservedRestaurant();
+                mUserRestaurantName = mCurrentWorkmate.getReservedRestaurantName();
+                SPAdapter spAdapter = new  SPAdapter(getApplicationContext());
+                spAdapter.setUserId(uid);
+                spAdapter.setUserName(mUserName);
+                spAdapter.setUserPhoto(mUserPhoto);
+                spAdapter.setRestaurantReserved(mUserRestaurant);
+                spAdapter.setRestaurantNameReserved(mUserRestaurantName);
                 checkPermissions();
             }
 
         });
+
+        configureToolBar();
+        configureDrawerLayout();
+        configureNavigationView();
         //Bundle bundle = new Bundle();
         //bundle.putString("userName", mUserName);
         //bundle.putString("userPhoto", mUserPhoto);
@@ -269,7 +270,7 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
 
     private void configureViewPagerAndTabs() {
         // Set Adapter PageAdapter and glue it together
-        mPager.setAdapter(new PageAdapter(getSupportFragmentManager(),mUserName, mUserPhoto));
+        mPager.setAdapter(new PageAdapter(getSupportFragmentManager(),mUserName, mUserPhoto,mUserRestaurant));
         // Glue TabLayout and ViewPager together
         mTab.setupWithViewPager(mPager);
         // Design purpose. Tabs have the same width
@@ -317,14 +318,14 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
         GetUserInfo getUserInfo = new GetUserInfo(this.getCurrentUser().getUid());
         switch (item.getItemId()){
             case R.id.activity_display_restaurant :
-                UserHelper.getUser(this.getCurrentUser().getUid()).addOnSuccessListener(new OnSuccessListener<DocumentSnapshot>() {
+                CompagnyHelper.getWorkmate(this.getCurrentUser().getUid()).addOnSuccessListener(new OnSuccessListener<DocumentSnapshot>() {
                     @Override
                     public void onSuccess(DocumentSnapshot documentSnapshot) {
-                        User currentUser = documentSnapshot.toObject(User.class);
-                        assert currentUser != null;
-                        mUserNameTextView.setText(currentUser.getUserName());
-                        if (currentUser.getReservedRestaurant()!=null){
-                            startRestaurantDisplayActivity(currentUser.getReservedRestaurant(), currentUser.getUserName(),currentUser.getUserPhoto());
+                        Compagny currentWorkmate = documentSnapshot.toObject(Compagny.class);
+                        assert currentWorkmate != null;
+                        mUserNameTextView.setText(currentWorkmate.getUserName());
+                        if (currentWorkmate.getReservedRestaurant()!=null){
+                            startRestaurantDisplayActivity(currentWorkmate.getReservedRestaurant(), currentWorkmate.getUserName(),currentWorkmate.getUserPhoto());
                         }
 
                         else

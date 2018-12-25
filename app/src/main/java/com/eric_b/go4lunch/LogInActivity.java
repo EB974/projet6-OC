@@ -5,7 +5,6 @@ import android.os.Build;
 import android.support.annotation.Nullable;
 import android.support.design.widget.CoordinatorLayout;
 import android.support.design.widget.Snackbar;
-import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Gravity;
@@ -13,19 +12,16 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
-
-import com.eric_b.go4lunch.api.UserHelper;
+import com.eric_b.go4lunch.api.CompagnyHelper;
 import com.eric_b.go4lunch.controller.activity.BaseActivity;
 import com.eric_b.go4lunch.controller.activity.LunchActivity;
 import com.firebase.ui.auth.AuthUI;
 import java.util.Collections;
 import java.util.Objects;
-
 import com.firebase.ui.auth.ErrorCodes;
 import com.firebase.ui.auth.IdpResponse;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
-
 import butterknife.BindView;
 import butterknife.ButterKnife;
 
@@ -171,7 +167,7 @@ public class LogInActivity extends BaseActivity {
             String urlPicture = (this.getCurrentUser().getPhotoUrl() != null) ? this.getCurrentUser().getPhotoUrl().toString() : null;
             String username = this.getCurrentUser().getDisplayName();
             String uid = this.getCurrentUser().getUid();
-            UserHelper.createUser(uid, username, urlPicture,null,null).addOnFailureListener(this.onFailureListener());
+            CompagnyHelper.createWorkmate(uid, username, urlPicture,"","").addOnFailureListener(this.onFailureListener());
         }
     }
 

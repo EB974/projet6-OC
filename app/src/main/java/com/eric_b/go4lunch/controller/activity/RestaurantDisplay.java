@@ -2,37 +2,35 @@ package com.eric_b.go4lunch.controller.activity;
 
 
 import android.Manifest;
+import android.app.Dialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
-import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.os.Bundle;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.util.Log;
-import android.view.LayoutInflater;
+import android.util.Pair;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.RatingBar;
 import android.widget.TextView;
 import com.bumptech.glide.Glide;
-import com.bumptech.glide.request.RequestOptions;
 import com.eric_b.go4lunch.R;
+import com.eric_b.go4lunch.Utils.CountStar;
 import com.eric_b.go4lunch.Utils.PlaceidStream;
+import com.eric_b.go4lunch.Utils.SPAdapter;
 import com.eric_b.go4lunch.View.RestaurantReservedAdapter;
+import com.eric_b.go4lunch.api.CompagnyHelper;
 import com.eric_b.go4lunch.api.MappedRestaurantHelper;
-import com.eric_b.go4lunch.api.RestaurantHelper;
-import com.eric_b.go4lunch.api.UserHelper;
-import com.eric_b.go4lunch.modele.MappedRestaurant;
-import com.eric_b.go4lunch.modele.Restaurant;
-import com.eric_b.go4lunch.modele.User;
-import com.eric_b.go4lunch.modele.UserMin;
+import com.eric_b.go4lunch.modele.Compagny;
 import com.eric_b.go4lunch.modele.placeid.GooglePlaceidPojo;
 import com.eric_b.go4lunch.modele.placeid.Photoid;
 import com.firebase.ui.firestore.FirestoreRecyclerAdapter;
-import com.firebase.ui.firestore.FirestoreRecyclerOptions;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.firestore.DocumentReference;
@@ -40,20 +38,10 @@ import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.EventListener;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.FirebaseFirestoreException;
-import com.google.firebase.firestore.Query;
-
-import java.util.AbstractList;
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
-import java.util.ListIterator;
-import java.util.Map;
 import java.util.Objects;
-
 import javax.annotation.Nullable;
-
 import butterknife.BindView;
 import butterknife.ButterKnife;
 import io.reactivex.observers.DisposableObserver;
@@ -72,8 +60,12 @@ public class RestaurantDisplay extends BaseActivity {
     TextView mRestaurantName;
     @BindView(R.id.restaurantAdresse)
     TextView mRestaurantAdresse;
-    @BindView(R.id.starImage)
-    ImageView mStarImage;
+    @BindView(R.id.starImage1)
+    ImageView mStarImage1;
+    @BindView(R.id.starImage2)
+    ImageView mStarImage2;
+    @BindView(R.id.starImage3)
+    ImageView mStarImage3;
     @BindView(R.id.noImageTextView)
     TextView mNoImagetext;
     @BindView(R.id.checkButton)
@@ -82,23 +74,25 @@ public class RestaurantDisplay extends BaseActivity {
     RecyclerView workmateRecyclerView;
 
     private static final String RESTAURANT_ID = "placeId";
-    private static final String USER_NAME = "UserName";
-    private static final String USER_PHOTO = "UserPhoto";
     private DisposableObserver<GooglePlaceidPojo> mPlaceidDisposable;
     private String mGoogleApiKey;
     private String mName, mAdresse, mPhoneNumber, mWebSite;
     private List<Photoid> mPhoto;
-    private String mStarColor = "line";
-    private boolean mCheck = false;
+    //private boolean mCheck = false;
     private String mRestaurantPlaceId;
     private FirestoreRecyclerAdapter adapter;
-    private int mNumbStar;
     private HashMap mReservedList;
     private int mNumberOfStar;
+    private int mNumberOfRating;
     private String mUserName;
     private String mUserPhoto;
-    private RecyclerView mRecyclerView;
-    private RestaurantReservedAdapter mAdapter;
+    private int mNumberOfWorkmate;
+    private HashMap<String,HashMap<String,String>> mUserReservedList;
+    private String mUserOldReserved;
+    private Dialog mRateDialog;
+    private Boolean mReserved = false;
+    private String mUserId;
+    private String mUserOldNameReserved;
 
 
     @Override
@@ -108,11 +102,17 @@ public class RestaurantDisplay extends BaseActivity {
         ButterKnife.bind(this);
         mGoogleApiKey = getString(R.string.google_maps_key);
         mRestaurantPlaceId = getIntent().getStringExtra(RESTAURANT_ID);
-        mUserName = getIntent().getStringExtra(USER_NAME);
-        mUserPhoto = getIntent().getStringExtra(USER_PHOTO);
+        SPAdapter spAdapter = new SPAdapter(this);
+        mUserId = spAdapter.getUserId();
+        mUserName = spAdapter.getUserName();
+        mUserPhoto = spAdapter.getUserPhoto();
+        mUserOldReserved = spAdapter.getRestaurantReserved();
+        mUserOldNameReserved = spAdapter.getRestaurantNameReserved();
         mNumberOfStar = 0;
-        mReservedList= new HashMap<String,String>();
-        UserMin userMin = new UserMin();
+        mNumberOfRating = 0;
+        mReservedList= new HashMap<String,Pair>();
+        mRateDialog = new Dialog(RestaurantDisplay.this);
+        LoadUserRestaurant();
 
         FirebaseFirestore db = FirebaseFirestore.getInstance();
         final DocumentReference docRef = db.collection("mappedRestaurant").document(mRestaurantPlaceId);
@@ -124,10 +124,14 @@ public class RestaurantDisplay extends BaseActivity {
                     return;
                 }
                 if (documentSnapshot != null && documentSnapshot.exists()) {
+                    //mReserved = documentSnapshot.getBoolean("reserved");
                     mNumberOfStar = Math.round((Long) documentSnapshot.get("numberOfStar"));
-                    mReservedList= new HashMap<String,String>();
-                    mReservedList.putAll((HashMap<String,String>) documentSnapshot.get("workmatesReservation"));
+                    mNumberOfRating = Math.round((Long) documentSnapshot.get("numberOfRating"));
+                    mNumberOfWorkmate = Integer.valueOf((String) documentSnapshot.get("numberOfWorkmate"));
+                    mReservedList = new HashMap<String,String>();
+                    mReservedList.putAll((HashMap<String,HashMap<String,String>>) documentSnapshot.get("workmatesReservation"));
                     displayWorkmateList();
+                    starDisplay();
                 }
             }
         });
@@ -135,9 +139,8 @@ public class RestaurantDisplay extends BaseActivity {
         getCurrentUserRest();
         callNumber();
         webDisplay();
-        starDisplay();
         checkDisplay();
-        //getWorkmateList();
+        likeButtonListener();
     }
 
 
@@ -154,7 +157,6 @@ public class RestaurantDisplay extends BaseActivity {
                     mPhoto = placeidResponce.getResult().getPhotos();
                     adapter();
                     photoDisplay();
-
                 }
             }
 
@@ -226,45 +228,110 @@ public class RestaurantDisplay extends BaseActivity {
     }
 
     private void starDisplay() {
+        new CountStar(mNumberOfStar, mNumberOfRating);
+        switch (CountStar.getcount()) {
+            case 0: {
+                mStarImage1.setImageResource(R.drawable.ic_star_line);
+                mStarImage2.setVisibility(View.INVISIBLE);
+                mStarImage3.setVisibility(View.INVISIBLE);
+            }
+            break;
+            case 1: {
+                mStarImage1.setImageResource(R.drawable.ic_star_yellow);
+                mStarImage2.setVisibility(View.INVISIBLE);
+                mStarImage3.setVisibility(View.INVISIBLE);
+            }
+            break;
+            case 2: {
+                mStarImage1.setImageResource(R.drawable.ic_star_yellow);
+                mStarImage2.setVisibility(View.VISIBLE);
+                mStarImage3.setVisibility(View.INVISIBLE);
+            }
+            break;
+            case 3: {
+                mStarImage1.setImageResource(R.drawable.ic_star_yellow);
+                mStarImage2.setVisibility(View.VISIBLE);
+                mStarImage3.setVisibility(View.VISIBLE);
+            }
+            break;
+        }
+    }
+
+    private void likeButtonListener(){
         mLikeButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if (!mStarColor.equals("yellow")) {
-                    mStarImage.setImageResource(R.drawable.ic_star_yellow);
-                    mStarColor = "yellow";
-                    mNumberOfStar++;
-                    MappedRestaurantHelper.updateRestaurantNumberOfStar(mRestaurantPlaceId,mNumberOfStar);
+                displayDialRate();
                 }
-            else{
-                    mStarImage.setImageResource(R.drawable.ic_star_line);
-                    mStarColor = "line";
-                    if (mNumberOfStar>0){
-                        mNumberOfStar--;
-                        MappedRestaurantHelper.updateRestaurantNumberOfStar(mRestaurantPlaceId,mNumberOfStar);
-                    }
-                }
-        }});
+        });
+    }
+
+    private void displayDialRate(){
+        mRateDialog.setContentView(R.layout.rating_dialog_box);
+        ImageView closeDial = mRateDialog.findViewById(R.id.dialog_close);
+        RatingBar ndOfStar = mRateDialog.findViewById(R.id.restaurant_rate_bare);
+        Button dialValid = mRateDialog.findViewById(R.id.dial_button_ok);
+        final int[] numberStar = new int[1];
+        closeDial.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mRateDialog.dismiss();
+            }
+        });
+
+        ndOfStar.setOnRatingBarChangeListener(new RatingBar.OnRatingBarChangeListener() {
+            public void onRatingChanged(RatingBar ratingBar, float rating, boolean fromUser) {
+                numberStar[0] = Math.round(rating);
+            }
+        });
+
+        dialValid.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mNumberOfStar = mNumberOfStar+numberStar[0];
+                mNumberOfRating ++;
+                updateSelectedRestaurant(mReserved,mRestaurantPlaceId, mNumberOfStar,mNumberOfRating,String.valueOf(mNumberOfWorkmate),mReservedList);
+                mRateDialog.dismiss();
+            }
+        });
+        mRateDialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        mRateDialog.show();
     }
 
     private void checkDisplay() {
         mCheckImageViewButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if (mCheck) {
+                if (mReserved) {
                     mCheckImageViewButton.setImageResource(R.drawable.ic_check);
-                    mCheck = false;
-                    updateUserUnselectedRestaurant();
-                    if(mReservedList.containsKey(mUserName)) mReservedList.remove(mUserName);
-                    updateSelectedRestaurant(false, mRestaurantPlaceId, mNumberOfStar, mReservedList);
+                    mReserved = false;
+                    updateWorkmateUnselectedRestaurant();
+                    if(mReservedList.containsKey(mUserId)) mReservedList.remove(mUserId);
+                    mNumberOfWorkmate = mReservedList.size();
+                    updateSelectedRestaurant(mReserved, mRestaurantPlaceId, mNumberOfStar, mNumberOfRating, String.valueOf(mNumberOfWorkmate), mReservedList);
                 }
                 else{
                     mCheckImageViewButton.setImageResource(R.drawable.ic_checked);
-                    mCheck = true;
-                    updateUserSelectedRestaurant();
-                    mReservedList.put(mUserName,mUserPhoto);
-                    updateSelectedRestaurant(true,mRestaurantPlaceId, mNumberOfStar, mReservedList);
+                    mReserved = true;
+                    updateWorkmateSelectedRestaurant();
+                    if (mReservedList==null) mReservedList = new HashMap<String,HashMap<String,String>>();
+                    HashMap<String,String> pair = new HashMap<>();
+                    pair.put("name",mUserName);
+                    pair.put("url_photo",mUserPhoto);
+                    mReservedList.put(mUserId,pair);
+                    mNumberOfWorkmate = mReservedList.size();
+                    if(mUserReservedList!=null)
+                        deleteUserOnList();
+                    updateSelectedRestaurant(mReserved,mRestaurantPlaceId, mNumberOfStar, mNumberOfRating, String.valueOf(mNumberOfWorkmate), mReservedList);
                 }
             }});
+    }
+
+    private void deleteUserOnList() {
+        mUserReservedList.remove(mUserId);
+        if (mUserReservedList.size()==0) MappedRestaurantHelper.updateRestaurantReserved(mUserOldReserved,false);
+        MappedRestaurantHelper.updateRestaurantWorkmateList(mUserOldReserved,mUserReservedList);
+        MappedRestaurantHelper.updateRestaurantNumberOfWorkmate(mUserOldReserved, String.valueOf(mUserReservedList.size()));
     }
 
     @Override
@@ -274,14 +341,14 @@ public class RestaurantDisplay extends BaseActivity {
     }
 
     private void getCurrentUserRest() {
-        UserHelper.getUser(Objects.requireNonNull(this.getCurrentUser()).getUid()).addOnSuccessListener(new OnSuccessListener<DocumentSnapshot>() {
+        CompagnyHelper.getWorkmate(Objects.requireNonNull(this.getCurrentUser()).getUid()).addOnSuccessListener(new OnSuccessListener<DocumentSnapshot>() {
             @Override
             public void onSuccess(DocumentSnapshot documentSnapshot) {
-                User currentUser = documentSnapshot.toObject(User.class);
-                if(currentUser.getReservedRestaurant()!=null){
-                    if(currentUser.getReservedRestaurant().equals(mRestaurantPlaceId)){
+                Compagny currentWorkmate = documentSnapshot.toObject(Compagny.class);
+                if(currentWorkmate.getReservedRestaurant()!=null){
+                    if(currentWorkmate.getReservedRestaurant().equals(mRestaurantPlaceId)){
                         mCheckImageViewButton.setImageResource(R.drawable.ic_checked);
-                        mCheck=true;
+                        mReserved=true;
                     }
 
 
@@ -290,46 +357,52 @@ public class RestaurantDisplay extends BaseActivity {
         });
     }
 
-    //  Update User Selected restaurant
-    private void updateUserSelectedRestaurant(){
+    //  Update Workmate Selected restaurant
+    private void updateWorkmateSelectedRestaurant(){
         if (this.getCurrentUser() != null) {
-            UserHelper.updateUserRestaurant(this.mRestaurantPlaceId,this.getCurrentUser().getUid()).addOnFailureListener(this.onFailureListener());
-            UserMin userMin= new UserMin(this.getCurrentUser().getUid());
+            CompagnyHelper.updateWorkmateRestaurant(this.mRestaurantPlaceId,this.getCurrentUser().getUid()).addOnFailureListener(this.onFailureListener());
+            CompagnyHelper.updateWorkmateRestaurantName(this.mName,this.getCurrentUser().getUid()).addOnFailureListener(this.onFailureListener());
             //updateWorkmateList();
         }
     }
 
-    //  Update User Selected restaurant
-    private void updateUserUnselectedRestaurant(){
+    //  Update Workmate Selected restaurant
+    private void updateWorkmateUnselectedRestaurant(){
         if (this.getCurrentUser() != null) {
             //updateWorkmateList();
-            UserHelper.updateUserRestaurant("",this.getCurrentUser().getUid()).addOnFailureListener(this.onFailureListener());
-
+            CompagnyHelper.updateWorkmateRestaurant("",this.getCurrentUser().getUid()).addOnFailureListener(this.onFailureListener());
+            CompagnyHelper.updateWorkmateRestaurantName("",this.getCurrentUser().getUid()).addOnFailureListener(this.onFailureListener());
         }
     }
 
-    private void updateSelectedRestaurant(final Boolean reserved, final String restaurantPlaceId,final int numberOfStar,final HashMap<String,String> workmateReservation){
+    private void updateSelectedRestaurant(final Boolean reserved, final String restaurantPlaceId,final int numberOfStar,final int numberOfRating,final String numberOfWorkmate, final HashMap<String,HashMap<String,String>> workmateReservation){
         final Task<DocumentSnapshot> mappedRestaurant = MappedRestaurantHelper.getRestaurant(restaurantPlaceId);
         mappedRestaurant.addOnSuccessListener(new OnSuccessListener<DocumentSnapshot>() {
             @Override
             public void onSuccess(DocumentSnapshot documentSnapshot) {
                 if(Objects.requireNonNull(mappedRestaurant.getResult()).exists()){
                     MappedRestaurantHelper.updateRestaurantReserved(restaurantPlaceId,reserved);
+                    MappedRestaurantHelper.updateRestaurantNumberOfWorkmate(restaurantPlaceId,numberOfWorkmate);
                     MappedRestaurantHelper.updateRestaurantWorkmateList(restaurantPlaceId,workmateReservation);
+                    MappedRestaurantHelper.updateRestaurantNumberOfStar(restaurantPlaceId,numberOfStar);
+                    MappedRestaurantHelper.updateRestaurantNumberOfRating(restaurantPlaceId,numberOfRating);
                 }
                 else{
-                    MappedRestaurantHelper.createRestaurant(restaurantPlaceId, reserved, numberOfStar,workmateReservation);
+                    MappedRestaurantHelper.createRestaurant(restaurantPlaceId, reserved, numberOfStar, numberOfRating, numberOfWorkmate, workmateReservation);
                     //MappedRestaurantHelper.updateRestaurantReserved(restaurantPlaceId,reserved);
                 }
             }
         });
+
+        SPAdapter spAdapter = new SPAdapter(this);
+        spAdapter.setRestaurantReserved(restaurantPlaceId);
     }
 
     private void displayWorkmateList(){
-        HashMap<String, String> workmateList = new HashMap<>(mReservedList);
-        if(workmateList.containsKey(mUserName))workmateList.remove(mUserName);
-        mAdapter = new RestaurantReservedAdapter(workmateList, Glide.with(this),mUserName);
-        workmateRecyclerView.setAdapter(mAdapter);
+        HashMap<String,HashMap<String,String>> workmateList = new HashMap<>(mReservedList);
+        if(workmateList.containsKey(mUserId))workmateList.remove(mUserId);
+        RestaurantReservedAdapter adapter = new RestaurantReservedAdapter(workmateList, Glide.with(getApplication()), mUserName);
+        workmateRecyclerView.setAdapter(adapter);
         workmateRecyclerView.setLayoutManager(new LinearLayoutManager(this));
 
     }
@@ -345,4 +418,21 @@ public class RestaurantDisplay extends BaseActivity {
         super.onStop();
         //adapter.stopListening();
     }
+
+
+    private void LoadUserRestaurant()  {
+            if (!mUserOldReserved.equals("") && !mUserOldReserved.equals(null)) {
+                FirebaseFirestore db = FirebaseFirestore.getInstance();
+                final DocumentReference docRef = db.collection("mappedRestaurant").document(mUserOldReserved);
+                docRef.addSnapshotListener(new EventListener<DocumentSnapshot>() {
+                    @Override
+                    public void onEvent(@Nullable DocumentSnapshot documentSnapshot, @Nullable FirebaseFirestoreException e) {
+                        mUserReservedList  = (HashMap<String,HashMap<String,String>>) documentSnapshot.get("workmatesReservation");
+                    }
+                });
+        }
+    }
+
+
+
 }

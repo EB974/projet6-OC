@@ -13,11 +13,13 @@ public class PageAdapter extends FragmentPagerAdapter{
 
     private String userName;
     private String userPhoto;
+    private String userRestaurant;
 
-    public PageAdapter(FragmentManager mgr, String userName,String userPhoto) {
+    public PageAdapter(FragmentManager mgr, String userName,String userPhoto, String userRestaurant) {
         super(mgr);
         this.userName = userName;
         this.userPhoto = userPhoto;
+        this.userRestaurant = userRestaurant;
     }
 
     @Override
@@ -29,9 +31,9 @@ public class PageAdapter extends FragmentPagerAdapter{
     public Fragment getItem(int position) {
         switch (position) {
             case 0: //Page number 1
-                return MapFragment.newInstance(userName, userPhoto);
+                return MapFragment.newInstance();
             case 1: //Page number 2
-                return new ListViewFragment();
+                return ListViewFragment.newInstance();
             case 2: //Page number 3
                 return new WorkmateFragment();
             default:

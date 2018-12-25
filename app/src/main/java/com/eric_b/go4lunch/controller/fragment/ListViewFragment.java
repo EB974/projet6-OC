@@ -13,6 +13,7 @@ import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.Fragment;
+
 import android.support.v7.widget.DividerItemDecoration;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
@@ -80,6 +81,7 @@ public class ListViewFragment extends Fragment {
     private String mUserName;
     private String mUserPhoto;
     private String mUserReservedRestaurant;
+    private String mSorting;
 
     public ListViewFragment() {
         // Required empty public constructor
@@ -150,6 +152,7 @@ public class ListViewFragment extends Fragment {
 
         @Override
         protected String doInBackground(String... strings) {
+            final SparseArray<String> sparseArray = new SparseArray<String>();
             mPlaceDisposable = PlaceStream.streamFetchsNearbyRestaurants(mLocation, "500", "restaurant", mGoogleApiKey).subscribeWith(new DisposableObserver<GooglePlacePojo>() {
                 @Override
                 public void onNext(GooglePlacePojo response) {
@@ -166,30 +169,57 @@ public class ListViewFragment extends Fragment {
                 public void onComplete() {
                     ArrayList<String> categories = new ArrayList<>();
                     HashMap<Integer, String> hmap = new HashMap<Integer, String>();
-                    SparseArray<String> sparseArray = new SparseArray<String>();
-                    try {
-                        for (int i = 0; i < results.getResults().size(); i++) {
-                            resulForDistance = results.getResults().get(i);
-                            Location restaurantLocation = new Location("restaurant");
-                            restaurantLocation.setLatitude(resulForDistance.getGeometry().getLocation().getLat());
-                            restaurantLocation.setLongitude(resulForDistance.getGeometry().getLocation().getLng());
-                            Distance distance = new Distance(mLastLocation, restaurantLocation);
-                            int restdist = distance.getDistance();
-                            String restId = results.getResults().get(i).getPlaceId();
-                            sparseArray.put(restdist, restId);
+                    if(mSorting.equals("by_Distance")){
+                        try {
+                            for (int i = 0; i < results.getResults().size(); i++) {
+                                resulForDistance = results.getResults().get(i);
+                                Location restaurantLocation = new Location("restaurant");
+                                restaurantLocation.setLatitude(resulForDistance.getGeometry().getLocation().getLat());
+                                restaurantLocation.setLongitude(resulForDistance.getGeometry().getLocation().getLng());
+                                Distance distance = new Distance(mLastLocation, restaurantLocation);
+                                int restdist = distance.getDistance();
+                                String restId = results.getResults().get(i).getPlaceId();
+                                sparseArray.put(restdist, restId);
+                            }
+                            // display results if one or more is found
+                            mAdapter.updateAnswers(sparseArray);
+                        } catch (Throwable e) {
+                            e.printStackTrace();
                         }
+                    }
+                    if(mSorting.equals("by_Star")){
+                        FirebaseFirestore db = FirebaseFirestore.getInstance();
+                        final int[] numberOfStar = new int[1];
+                        try {
+                            for (int i = 0; i < results.getResults().size(); i++) {
+                                resulForDistance = results.getResults().get(i);
+                                String restId = results.getResults().get(i).getPlaceId();
+                                final DocumentReference docRef = db.collection("mappedRestaurant").document(restId);
+                                docRef.addSnapshotListener(new EventListener<DocumentSnapshot>() {
+                                    @Override
+                                    public void onEvent(@Nullable DocumentSnapshot documentSnapshot, @Nullable FirebaseFirestoreException e) {
+                                        if (e != null) {
+                                            Log.w("ressource", "Listen failed.", e);
+                                            return;
+                                        }
+                                        if (documentSnapshot != null && documentSnapshot.exists()) {
+                                            //mReserved = documentSnapshot.getBoolean("reserved");
+                                            numberOfStar[0] = Math.round((Long) documentSnapshot.get("numberOfStar"));
+                                        }
+                                    }
+                                });
+                                sparseArray.put(numberOfStar[0], restId);
+                            }
+                            // display results if one or more is found
+                            mAdapter.updateAnswers(sparseArray);
+                        }
+                        catch (Throwable e) {
+                            e.printStackTrace();
+                        }
+                    }
 
-                        // display results if one or more is found
-                        //mAdapter.updateAnswers(response.getResults());
-                        //i++;
-                        mAdapter.updateAnswers(sparseArray);
-                    }
-                    catch (Throwable e) {
-                        e.printStackTrace();
-                    }
                 }
             });
-
             return null;
         }
 
