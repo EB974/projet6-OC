@@ -333,6 +333,7 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
                     }});
                 break;
             case R.id.activity_settings:
+                startSettingActivity();
                 break;
             case R.id.logout:
                 logout();
@@ -386,6 +387,10 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
         startActivity(intent);
     }
 
+    private void startSettingActivity(){
+        Intent intent = new Intent(this, SettingActivity.class);
+        startActivity(intent);
+    }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] perms, @NonNull int[] grantResults) {

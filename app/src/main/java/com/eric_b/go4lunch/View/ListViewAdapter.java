@@ -17,7 +17,9 @@ import com.bumptech.glide.request.RequestOptions;
 import com.eric_b.go4lunch.R;
 import com.eric_b.go4lunch.Utils.CalculateOpeningHours;
 import com.eric_b.go4lunch.Utils.CountStar;
+import com.eric_b.go4lunch.Utils.Distance;
 import com.eric_b.go4lunch.Utils.PlaceidStream;
+import com.eric_b.go4lunch.Utils.RestaurantList;
 import com.eric_b.go4lunch.api.MappedRestaurantHelper;
 import com.eric_b.go4lunch.modele.placeid.GooglePlaceidPojo;
 import com.eric_b.go4lunch.modele.placeid.OpeningHoursid;
@@ -27,8 +29,10 @@ import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.EventListener;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.FirebaseFirestoreException;
+import com.google.protobuf.StringValue;
 
 import java.lang.ref.WeakReference;
+import java.util.ArrayList;
 import java.util.HashMap;
 
 import javax.annotation.Nullable;
@@ -40,22 +44,26 @@ public class ListViewAdapter extends RecyclerView.Adapter<ListViewAdapter.ViewHo
 
 
     //private List<Result> mItems;
-    SparseArray mItems;
+    private RestaurantList mItems;
     private PostItemListener mItemListener;
     private RequestManager mGlide;
     private String mKey;
     private String mPhotoReference;
     private String mDetailId;
     private OpeningHoursid mOpeningHoursid;
+    private ArrayList mList;
     private Location mLocation;
 
 
-    public ListViewAdapter(SparseArray results, RequestManager glide, PostItemListener itemListener, Location usrLocation, String key) {
+    public ListViewAdapter(RestaurantList results, RequestManager glide, PostItemListener itemListener, Location usrLocation, String key) {
         mItemListener = itemListener;
         mItems = results;
         mGlide = glide;
         mLocation = usrLocation;
         mKey = key;
+        mList = results.getList();
+        Log.d("ressource","mList "+mList);
+        Log.d("ressource","results "+results);
     }
 
     public interface Listeners {
@@ -83,7 +91,6 @@ public class ListViewAdapter extends RecyclerView.Adapter<ListViewAdapter.ViewHo
             this.mItemListener = postItemListener;
             restaurantView.setOnClickListener(this);
             //CREATE VIEW HOLDER AND INFLATING ITS XML LAYOUT
-
         }
 
 
@@ -107,26 +114,31 @@ public class ListViewAdapter extends RecyclerView.Adapter<ListViewAdapter.ViewHo
 
     @Override
     public void onBindViewHolder(@NonNull final ListViewAdapter.ViewHolder holder, int position) {
-        final String restaurantId = (String) mItems.valueAt(position);
-        final int restaurantDistance = mItems.keyAt(position);
+        final String restaurantId = mItems.getId((int)mList.get(position));
+        final int restaurantDistance = mItems.getDistance((int)mList.get(position));
+        final int restaurantRate = mItems.getRate((int)mList.get(position));
+        Log.d("ressource","restaurantId "+restaurantId);
+        Log.d("ressource","restaurantDistance "+restaurantDistance);
+        Log.d("ressource","restaurantRate "+restaurantRate);
         //String detailId = item.getPlaceId();
-
+        //final Location restaurantLocation = new Location("restaurant");
 
         DisposableObserver<GooglePlaceidPojo> mPlaceidDisposable = PlaceidStream.streamFetchsDetailRestaurants(restaurantId, "name,formatted_address,photo,formatted_phone_number,website,opening_hours,id", "restaurant", mKey).subscribeWith(new DisposableObserver<GooglePlaceidPojo>() {
 
             @Override
             public void onNext(GooglePlaceidPojo placeidPojo) {
-                try{
+                try {
                     Photoid photoId = placeidPojo.getResult().getPhotos().get(0);
                     mPhotoReference = photoId.getPhotoReference();
                     mOpeningHoursid = placeidPojo.getResult().getOpeningHours();
-                }catch (Throwable e) {
-                    e.printStackTrace();}
+                } catch (Throwable e) {
+                    e.printStackTrace();
+                }
 
 
                 CalculateOpeningHours calcOpeningHours = new CalculateOpeningHours(mOpeningHoursid);
                 holder.mRestaurantOpenHour.setText(calcOpeningHours.getDate());
-                holder.mRestaurantDistance.setText(restaurantDistance + "m");
+                holder.mRestaurantDistance.setText(String.format("%sm", restaurantDistance));
                 try {
                     String photoheight = "70";
                     String photowidth = "70";
@@ -137,59 +149,35 @@ public class ListViewAdapter extends RecyclerView.Adapter<ListViewAdapter.ViewHo
                 } catch (Throwable e) {
                     e.printStackTrace();
                 }
-                FirebaseFirestore db = FirebaseFirestore.getInstance();
-                final DocumentReference docRef = db.collection("mappedRestaurant").document(restaurantId);
-                docRef.addSnapshotListener(new EventListener<DocumentSnapshot>() {
-                    @Override
-                    public void onEvent(@Nullable DocumentSnapshot documentSnapshot, @Nullable FirebaseFirestoreException e) {
-                        if (e != null) {
-                            Log.w("ressource", "Listen failed.", e);
-                            return;
-                        }
-                        if (documentSnapshot != null && documentSnapshot.exists()) {
-                            String numberWorkmate = String.valueOf(documentSnapshot.get("numberOfWorkmate"));
-                            holder.mNbOfWorkmate.setText("("+numberWorkmate+")");
-
-                            int numberOfStar = Math.round((Long) documentSnapshot.get("numberOfStar"));
-                            int numberOfRating = Math.round((Long) documentSnapshot.get("numberOfRating"));
-                            new CountStar(numberOfStar, numberOfRating);
-                            switch (CountStar.getcount()) {
-                                case 0: {
-                                    holder.mStar01.setImageResource(R.drawable.ic_star_line);
-                                    holder.mStar02.setVisibility(View.INVISIBLE);
-                                    holder.mStar03.setVisibility(View.INVISIBLE);
-                                }
-                                break;
-                                case 1: {
-                                    holder.mStar01.setImageResource(R.drawable.ic_star_yellow);
-                                    holder.mStar02.setVisibility(View.INVISIBLE);
-                                    holder.mStar03.setVisibility(View.INVISIBLE);
-                                }
-                                break;
-                                case 2: {
-                                    holder.mStar01.setImageResource(R.drawable.ic_star_yellow);
-                                    holder.mStar02.setVisibility(View.VISIBLE);
-                                    holder.mStar03.setVisibility(View.INVISIBLE);
-                                }
-                                break;
-                                case 3: {
-                                    holder.mStar01.setImageResource(R.drawable.ic_star_yellow);
-                                    holder.mStar02.setVisibility(View.VISIBLE);
-                                    holder.mStar03.setVisibility(View.VISIBLE);
-                                }
-                                break;
-                            }
-
-                        }
+                switch (restaurantRate) {
+                    case 0: {
+                        holder.mStar01.setImageResource(R.drawable.ic_star_line);
+                        holder.mStar02.setVisibility(View.INVISIBLE);
+                        holder.mStar03.setVisibility(View.INVISIBLE);
                     }
-                });
+                    break;
+                    case 1: {
+                        holder.mStar01.setImageResource(R.drawable.ic_star_yellow);
+                        holder.mStar02.setVisibility(View.INVISIBLE);
+                        holder.mStar03.setVisibility(View.INVISIBLE);
+                    }
+                    break;
+                    case 2: {
+                        holder.mStar01.setImageResource(R.drawable.ic_star_yellow);
+                        holder.mStar02.setVisibility(View.VISIBLE);
+                        holder.mStar03.setVisibility(View.INVISIBLE);
+                    }
+                    break;
+                    case 3: {
+                        holder.mStar01.setImageResource(R.drawable.ic_star_yellow);
+                        holder.mStar02.setVisibility(View.VISIBLE);
+                        holder.mStar03.setVisibility(View.VISIBLE);
+                    }
+                    break;
+                }
+
                 holder.mRestaurantName.setText(placeidPojo.getResult().getName());
                 holder.mRestaurantAdresse.setText(placeidPojo.getResult().getFormattedAddress());
-
-
-
-
-
             }
 
             @Override
@@ -201,6 +189,7 @@ public class ListViewAdapter extends RecyclerView.Adapter<ListViewAdapter.ViewHo
             public void onComplete() {
 
             }
+
         });
 
 
@@ -212,17 +201,17 @@ public class ListViewAdapter extends RecyclerView.Adapter<ListViewAdapter.ViewHo
 
     @Override
     public int getItemCount() {
-        return mItems.size();
+        return mList.size();
     }
 
-    public void updateAnswers(SparseArray sparseArray) {
-        mItems = sparseArray;
+    public void updateAnswers(RestaurantList restaurantList) {
+        mItems = restaurantList;
         //mItems = items;
         notifyDataSetChanged();
     }
 
     private String getResults(int adapterPosition) {
-        return (String) mItems.valueAt(adapterPosition);
+        return (String) mItems.getId(adapterPosition);
     }
 
     public interface PostItemListener {

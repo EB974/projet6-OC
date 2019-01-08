@@ -1,64 +1,48 @@
 package com.eric_b.go4lunch.controller.fragment;
 
 import android.Manifest;
-import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Criteria;
 import android.location.Location;
 import android.location.LocationManager;
-import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.Fragment;
-
 import android.support.v7.widget.DividerItemDecoration;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.util.Log;
-import android.util.SparseArray;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-
 import com.bumptech.glide.Glide;
 import com.eric_b.go4lunch.R;
+import com.eric_b.go4lunch.Utils.CountStar;
 import com.eric_b.go4lunch.Utils.Distance;
 import com.eric_b.go4lunch.Utils.PlaceStream;
-import com.eric_b.go4lunch.Utils.PlaceidStream;
+import com.eric_b.go4lunch.Utils.RestaurantList;
+import com.eric_b.go4lunch.Utils.SPAdapter;
 import com.eric_b.go4lunch.View.ListViewAdapter;
 import com.eric_b.go4lunch.controller.activity.RestaurantDisplay;
 import com.eric_b.go4lunch.modele.place.GooglePlacePojo;
 import com.eric_b.go4lunch.modele.place.Result;
-import com.eric_b.go4lunch.modele.placeid.Resultid;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.tasks.SuccessContinuation;
+import com.google.android.gms.tasks.Task;
 import com.google.firebase.firestore.CollectionReference;
-import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
-import com.google.firebase.firestore.EventListener;
 import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.FirebaseFirestoreException;
-import com.google.protobuf.StringValue;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
+import java.util.Map;
 import java.util.Objects;
-
-import javax.annotation.Nullable;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
 import io.reactivex.observers.DisposableObserver;
-import pub.devrel.easypermissions.AfterPermissionGranted;
-import pub.devrel.easypermissions.EasyPermissions;
-
 import static android.content.Context.LOCATION_SERVICE;
 
 public class ListViewFragment extends Fragment {
@@ -73,6 +57,8 @@ public class ListViewFragment extends Fragment {
     private static final String USER_NAME = "UserName";
     private static final String USER_PHOTO = "UserPhoto";
     private static final String USER_RESERVED_RESTAURANT = "UserReservedRestaurant";
+    private static final String SORT_BY_DISTANCE = "by_Distance";
+    private static final String SORT_BY_RATE = "by_Star";
     private int mRecoverPosition = 0;
     private DisposableObserver<GooglePlacePojo> mPlaceDisposable;
     private String mLocation;
@@ -82,6 +68,7 @@ public class ListViewFragment extends Fragment {
     private String mUserPhoto;
     private String mUserReservedRestaurant;
     private String mSorting;
+    private RestaurantList mRestaurantList;
 
     public ListViewFragment() {
         // Required empty public constructor
@@ -102,6 +89,9 @@ public class ListViewFragment extends Fragment {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         mGoogleApiKey = getString(R.string.google_maps_key);
+        SPAdapter spAdapter = new SPAdapter(Objects.requireNonNull(getActivity()));
+        mSorting = spAdapter.getSorting();
+        if (mSorting.equals("")) mSorting = SORT_BY_DISTANCE;
         Criteria criteria = new Criteria();
         criteria.setAccuracy(Criteria.ACCURACY_FINE);
         LocationManager locationManager = (LocationManager) Objects.requireNonNull(getContext()).getSystemService(LOCATION_SERVICE);
@@ -123,7 +113,7 @@ public class ListViewFragment extends Fragment {
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_list_view, container, false);
         ButterKnife.bind(this, view);
-        configureRecyclerView();
+        //configureRecyclerView();
         if (savedInstanceState!= null) { //recover the recyclerView position
             mRecoverPosition = savedInstanceState.getInt("POSITION");
         }
@@ -132,7 +122,7 @@ public class ListViewFragment extends Fragment {
     }
 
     private void configureRecyclerView(){
-        this.mAdapter = new ListViewAdapter( new SparseArray(0), Glide.with(this), new ListViewAdapter.PostItemListener() {
+        mAdapter = new ListViewAdapter( mRestaurantList, Glide.with(this), new ListViewAdapter.PostItemListener() {
             @Override
             public void onPostClick(String id) {
                 startRestaurantDisplayActivity(id);
@@ -146,13 +136,15 @@ public class ListViewFragment extends Fragment {
         mRecyclerView.addItemDecoration(itemDecoration);
     }
 
-    private class LoadAnswers extends AsyncTask<String, String, String> {
+    private class LoadAnswers extends AsyncTask<String, String, HashMap<String, Integer>> {
         Result resulForDistance;
         GooglePlacePojo results;
+        final HashMap<String, Integer> map = new HashMap<>();
+        final int[] numberOfStar = new int[1];
 
         @Override
-        protected String doInBackground(String... strings) {
-            final SparseArray<String> sparseArray = new SparseArray<String>();
+        protected HashMap<String, Integer> doInBackground(String... strings) {
+            mRestaurantList = new RestaurantList();
             mPlaceDisposable = PlaceStream.streamFetchsNearbyRestaurants(mLocation, "500", "restaurant", mGoogleApiKey).subscribeWith(new DisposableObserver<GooglePlacePojo>() {
                 @Override
                 public void onNext(GooglePlacePojo response) {
@@ -167,67 +159,105 @@ public class ListViewFragment extends Fragment {
                 }
                 @Override
                 public void onComplete() {
-                    ArrayList<String> categories = new ArrayList<>();
-                    HashMap<Integer, String> hmap = new HashMap<Integer, String>();
-                    if(mSorting.equals("by_Distance")){
+                    String restId;
                         try {
                             for (int i = 0; i < results.getResults().size(); i++) {
+                                restId = results.getResults().get(i).getPlaceId();
                                 resulForDistance = results.getResults().get(i);
                                 Location restaurantLocation = new Location("restaurant");
                                 restaurantLocation.setLatitude(resulForDistance.getGeometry().getLocation().getLat());
                                 restaurantLocation.setLongitude(resulForDistance.getGeometry().getLocation().getLng());
                                 Distance distance = new Distance(mLastLocation, restaurantLocation);
                                 int restdist = distance.getDistance();
-                                String restId = results.getResults().get(i).getPlaceId();
-                                sparseArray.put(restdist, restId);
+                                map.put(restId,restdist);
                             }
-                            // display results if one or more is found
-                            mAdapter.updateAnswers(sparseArray);
+                            //final DocumentReference docRef = db.collection("mappedRestaurant").document(entry.getKey());
+                            new LoadRate(map).execute();
                         } catch (Throwable e) {
                             e.printStackTrace();
                         }
-                    }
-                    if(mSorting.equals("by_Star")){
-                        FirebaseFirestore db = FirebaseFirestore.getInstance();
-                        final int[] numberOfStar = new int[1];
-                        try {
-                            for (int i = 0; i < results.getResults().size(); i++) {
-                                resulForDistance = results.getResults().get(i);
-                                String restId = results.getResults().get(i).getPlaceId();
-                                final DocumentReference docRef = db.collection("mappedRestaurant").document(restId);
-                                docRef.addSnapshotListener(new EventListener<DocumentSnapshot>() {
-                                    @Override
-                                    public void onEvent(@Nullable DocumentSnapshot documentSnapshot, @Nullable FirebaseFirestoreException e) {
-                                        if (e != null) {
-                                            Log.w("ressource", "Listen failed.", e);
-                                            return;
-                                        }
-                                        if (documentSnapshot != null && documentSnapshot.exists()) {
-                                            //mReserved = documentSnapshot.getBoolean("reserved");
-                                            numberOfStar[0] = Math.round((Long) documentSnapshot.get("numberOfStar"));
-                                        }
-                                    }
-                                });
-                                sparseArray.put(numberOfStar[0], restId);
-                            }
-                            // display results if one or more is found
-                            mAdapter.updateAnswers(sparseArray);
-                        }
-                        catch (Throwable e) {
-                            e.printStackTrace();
-                        }
-                    }
 
-                }
+                    }
             });
+            return map;
+        }
+
+        @Override
+        protected void onPostExecute(HashMap<String, Integer> map) {
+            super.onPostExecute(map);
+
+
+        }
+        //mAdapter.updateAnswers(restaurantList);
+
+    }
+
+
+    private class LoadRate extends AsyncTask<String, String, String> {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        final int[] rating = new int[1];
+        HashMap<String, Integer> map;
+        public LoadRate(HashMap<String, Integer> map) {
+            this.map = map;
+            Log.d("ressource","loadrate");
+        }
+
+        @Override
+        protected String doInBackground(String... strings) {
+            final CollectionReference docRef = db.collection("mappedRestaurant");
+            for (final Map.Entry<String,Integer> entry : map.entrySet()){
+
+                docRef.document(entry.getKey()).get().onSuccessTask(new SuccessContinuation<DocumentSnapshot, Object>() {
+                    @NonNull
+                    @Override
+                    public Task<Object> then(@android.support.annotation.Nullable DocumentSnapshot documentSnapshot) throws Exception {
+                        mRestaurantList.setId(entry.getKey());
+                        mRestaurantList.setDistance(entry.getValue());
+                        if (documentSnapshot != null && documentSnapshot.exists()) {
+                            int numberOfStar = Math.round((Long) documentSnapshot.get("numberOfStar"));
+                            int numberOfRating = Math.round((Long) documentSnapshot.get("numberOfRating"));
+                            new CountStar(numberOfStar, numberOfRating);
+                            rating[0] = CountStar.getcount();
+                        }
+                        else rating[0] = 0;
+                        mRestaurantList.setRate(rating[0]);
+                        if (mRestaurantList.getSize()==map.size()){
+
+                            Log.d("ressource","ok "+mRestaurantList);
+                            if (mSorting.equals(SORT_BY_RATE)) {
+                                mRestaurantList.sortRestaurant("rate");
+                                configureRecyclerView();
+                                mAdapter.updateAnswers(mRestaurantList);
+                            }
+                            if (mSorting.equals(SORT_BY_DISTANCE)) {
+                                mRestaurantList.sortRestaurant("distance");
+                                configureRecyclerView();
+                                mAdapter.updateAnswers(mRestaurantList);
+                            }
+
+                        }
+
+                        return null;
+
+                    }
+                });
+            }
+
             return null;
         }
 
+        @Override
+        protected void onPostExecute(String s) {
+            super.onPostExecute(s);
+        }
+
     }
+
+
     @Override
     public void onDetach() {
         super.onDetach();
-        //mPlaceDisposable.dispose();
+        mPlaceDisposable.dispose();
     }
 
     private void startRestaurantDisplayActivity(String id){
