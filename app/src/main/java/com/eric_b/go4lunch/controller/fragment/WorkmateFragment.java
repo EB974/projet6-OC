@@ -100,7 +100,6 @@ public class WorkmateFragment extends Fragment {
                     }
                     SPAdapter spAdapter = new SPAdapter(getContext());
                     String userId = spAdapter.getUserId();
-                    Log.d("ressource","workmate size "+ workmateList.size());
                     configureListView(workmateList,userId);
 
                 }

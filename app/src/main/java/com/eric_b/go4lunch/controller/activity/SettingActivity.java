@@ -5,14 +5,18 @@ import android.app.Dialog;
 import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
+import android.support.v4.app.Fragment;
+import android.support.v4.app.FragmentTransaction;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.CompoundButton;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.RadioButton;
@@ -55,6 +59,7 @@ public class SettingActivity extends AppCompatActivity {
     private ActionBar mActionBar;
     private SPAdapter mSpAdapter;
     private String mSorting;
+    public static final String BUNDLE_EXTRA ="EXTRA";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -97,11 +102,11 @@ public class SettingActivity extends AppCompatActivity {
                 int checkedRadioId = group.getCheckedRadioButtonId();
                 if(checkedRadioId== R.id.radioButton_distance) {
                     mSpAdapter.setSorting(SORT_BY_DISTANCE);
-                    ListViewFragment.newInstance();
                 } else if(checkedRadioId== R.id.radioButton_rating ) {
                     mSpAdapter.setSorting(SORT_BY_RATE);
-                    ListViewFragment.newInstance();
                 }
+                Intent intent = new Intent();
+                setResult(RESULT_OK, intent);
             }
         });
     }
@@ -174,4 +179,15 @@ public class SettingActivity extends AppCompatActivity {
         });
 
     }
+
+    private void refreshlistViewFrag(){
+        // Create new fragment and transaction
+
+        Fragment newFragment = new ListViewFragment();
+        FrameLayout fl = findViewById(R.id.listViewFragment);
+        fl.removeAllViews();
+        getSupportFragmentManager().beginTransaction()
+                .replace(R.id.listViewFragment, newFragment,"list").commit();
+    }
+
 }

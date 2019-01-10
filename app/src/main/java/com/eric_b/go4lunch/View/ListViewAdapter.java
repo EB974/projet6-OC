@@ -62,8 +62,6 @@ public class ListViewAdapter extends RecyclerView.Adapter<ListViewAdapter.ViewHo
         mLocation = usrLocation;
         mKey = key;
         mList = results.getList();
-        Log.d("ressource","mList "+mList);
-        Log.d("ressource","results "+results);
     }
 
     public interface Listeners {
@@ -117,11 +115,6 @@ public class ListViewAdapter extends RecyclerView.Adapter<ListViewAdapter.ViewHo
         final String restaurantId = mItems.getId((int)mList.get(position));
         final int restaurantDistance = mItems.getDistance((int)mList.get(position));
         final int restaurantRate = mItems.getRate((int)mList.get(position));
-        Log.d("ressource","restaurantId "+restaurantId);
-        Log.d("ressource","restaurantDistance "+restaurantDistance);
-        Log.d("ressource","restaurantRate "+restaurantRate);
-        //String detailId = item.getPlaceId();
-        //final Location restaurantLocation = new Location("restaurant");
 
         DisposableObserver<GooglePlaceidPojo> mPlaceidDisposable = PlaceidStream.streamFetchsDetailRestaurants(restaurantId, "name,formatted_address,photo,formatted_phone_number,website,opening_hours,id", "restaurant", mKey).subscribeWith(new DisposableObserver<GooglePlaceidPojo>() {
 
@@ -192,10 +185,6 @@ public class ListViewAdapter extends RecyclerView.Adapter<ListViewAdapter.ViewHo
 
         });
 
-
-        //holder.mRestaurantName.setText(item.getName());
-        //holder.mRestaurantAdresse.setText(item.getFormattedAddress());
-        //holder.mRestaurantOpenHour.setText(castOpeningHours[0].getDate());
     }
 
 
@@ -206,7 +195,6 @@ public class ListViewAdapter extends RecyclerView.Adapter<ListViewAdapter.ViewHo
 
     public void updateAnswers(RestaurantList restaurantList) {
         mItems = restaurantList;
-        //mItems = items;
         notifyDataSetChanged();
     }
 

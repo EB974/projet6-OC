@@ -199,7 +199,6 @@ public class ListViewFragment extends Fragment {
         HashMap<String, Integer> map;
         public LoadRate(HashMap<String, Integer> map) {
             this.map = map;
-            Log.d("ressource","loadrate");
         }
 
         @Override
@@ -223,7 +222,6 @@ public class ListViewFragment extends Fragment {
                         mRestaurantList.setRate(rating[0]);
                         if (mRestaurantList.getSize()==map.size()){
 
-                            Log.d("ressource","ok "+mRestaurantList);
                             if (mSorting.equals(SORT_BY_RATE)) {
                                 mRestaurantList.sortRestaurant("rate");
                                 configureRecyclerView();
@@ -234,15 +232,11 @@ public class ListViewFragment extends Fragment {
                                 configureRecyclerView();
                                 mAdapter.updateAnswers(mRestaurantList);
                             }
-
                         }
-
                         return null;
-
                     }
                 });
             }
-
             return null;
         }
 

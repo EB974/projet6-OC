@@ -1,6 +1,7 @@
 package com.eric_b.go4lunch.controller.activity;
 
 import android.Manifest;
+import android.app.Activity;
 import android.app.SearchManager;
 import android.content.Context;
 import android.content.Intent;
@@ -10,6 +11,8 @@ import android.support.annotation.NonNull;
 import android.support.design.widget.NavigationView;
 import android.support.design.widget.TabLayout;
 import android.support.v4.app.Fragment;
+import android.support.v4.app.FragmentManager;
+import android.support.v4.app.FragmentTransaction;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.view.GravityCompat;
 
@@ -21,11 +24,13 @@ import android.support.v7.app.ActionBarDrawerToggle;
 import android.os.Bundle;
 import android.support.v7.widget.SearchView;
 import android.support.v7.widget.Toolbar;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -38,6 +43,7 @@ import com.eric_b.go4lunch.R;
 import com.eric_b.go4lunch.Utils.SPAdapter;
 import com.eric_b.go4lunch.api.CompagnyHelper;
 import com.eric_b.go4lunch.api.GetUserInfo;
+import com.eric_b.go4lunch.controller.fragment.ListViewFragment;
 import com.eric_b.go4lunch.modele.Compagny;
 import com.firebase.ui.auth.AuthUI;
 import com.google.android.gms.tasks.OnSuccessListener;
@@ -49,6 +55,8 @@ import java.util.Objects;
 import butterknife.BindView;
 import butterknife.ButterKnife;
 import pub.devrel.easypermissions.EasyPermissions;
+
+import static com.google.android.gms.common.api.internal.LifecycleCallback.getFragment;
 
 public class LunchActivity extends BaseActivity implements NavigationView.OnNavigationItemSelectedListener, EasyPermissions.PermissionCallbacks {
 
@@ -87,8 +95,11 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
     private static final String PERM_TEL = Manifest.permission.CALL_PHONE;
     private static final int RC_CALL_PERMS = 110;
     private static final int FRAGMENT_MAP = 0;
-    private static final int FRAGMENT_LISTVIEW = 1;
+    //private static final int FRAGMENT_LISTVIEW = 1;
     private static final int FRAGMENT_WORKMATE = 2;
+    public static final String FRAGMENT_LISTVIEW = "ListViewFragment";
+    static final int SETTING_RESULT = 1;
+    public static final String BUNDLE_EXTRA ="EXTRA";
     private static final String RESTAURANT_ID = "placeId";
     private static final String USER_NAME = "UserName";
     private static final String USER_PHOTO = "UserPhoto";
@@ -101,6 +112,7 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
     String mSelectedItemColor;
     private String mUserRestaurant;
     private String mUserRestaurantName;
+    private java.lang.Object ListViewFragment;
 
 
     @Override
@@ -324,16 +336,20 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
                         Compagny currentWorkmate = documentSnapshot.toObject(Compagny.class);
                         assert currentWorkmate != null;
                         mUserNameTextView.setText(currentWorkmate.getUserName());
-                        if (currentWorkmate.getReservedRestaurant()!=null){
+                        if (currentWorkmate.getReservedRestaurant()!=null || currentWorkmate.getReservedRestaurant()!=""){
                             startRestaurantDisplayActivity(currentWorkmate.getReservedRestaurant(), currentWorkmate.getUserName(),currentWorkmate.getUserPhoto());
                         }
-
                         else
                             Toast.makeText(LunchActivity.this, getResources().getText(R.string.no_restaurant),Toast.LENGTH_LONG).show();
                     }});
                 break;
             case R.id.activity_settings:
                 startSettingActivity();
+                ///////////////////////////
+                // Reload current fragment
+
+
+                ///////////////////////////
                 break;
             case R.id.logout:
                 logout();
@@ -389,8 +405,18 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
 
     private void startSettingActivity(){
         Intent intent = new Intent(this, SettingActivity.class);
-        startActivity(intent);
+        //startActivity(intent);
+        startActivityForResult(intent,SETTING_RESULT);
     }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        // Check which request we're responding to
+        if (requestCode == SETTING_RESULT && RESULT_OK == resultCode) {
+            refreshlistViewFrag(); //refresh listViewFragment
+        }
+    }
+
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] perms, @NonNull int[] grantResults) {
@@ -410,5 +436,13 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
     public void onPermissionsDenied(int requestCode, @NonNull List<String> perms) {
     }
 
+    private void refreshlistViewFrag(){
+        // Create new fragment and transaction
+        Fragment newFragment = new ListViewFragment();
+        FrameLayout fl = findViewById(R.id.listViewFragment);
+        fl.removeAllViews();
+        getSupportFragmentManager().beginTransaction()
+                .replace(R.id.listViewFragment, newFragment,"list").commitAllowingStateLoss();
+    }
 
 }
