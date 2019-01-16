@@ -309,6 +309,10 @@ public class RestaurantDisplay extends BaseActivity {
                     if(mReservedList.containsKey(mUserId)) mReservedList.remove(mUserId);
                     mNumberOfWorkmate = mReservedList.size();
                     updateSelectedRestaurant(mReserved, mRestaurantPlaceId, mNumberOfStar, mNumberOfRating, String.valueOf(mNumberOfWorkmate), mReservedList);
+                    SPAdapter spAdapter = new SPAdapter(getApplicationContext());
+                    spAdapter.setRestaurantReserved("");
+                    spAdapter.setRestaurantNameReserved("");
+                    spAdapter.setRestaurantAdressReserved("");
                 }
                 else{
                     mCheckImageViewButton.setImageResource(R.drawable.ic_checked);
@@ -323,6 +327,10 @@ public class RestaurantDisplay extends BaseActivity {
                     if(mUserReservedList!=null)
                         deleteUserOnList();
                     updateSelectedRestaurant(mReserved,mRestaurantPlaceId, mNumberOfStar, mNumberOfRating, String.valueOf(mNumberOfWorkmate), mReservedList);
+                    SPAdapter spAdapter = new SPAdapter(getApplicationContext());
+                    spAdapter.setRestaurantReserved(mRestaurantPlaceId);
+                    spAdapter.setRestaurantNameReserved(mName);
+                    spAdapter.setRestaurantAdressReserved(mAdresse);
                 }
             }});
     }

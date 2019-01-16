@@ -7,6 +7,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.PorterDuff;
+import android.os.Handler;
 import android.support.annotation.NonNull;
 import android.support.design.widget.NavigationView;
 import android.support.design.widget.TabLayout;
@@ -80,6 +81,8 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
     private String mUserName;
     private String mUserPhoto;
     private Compagny mCurrentWorkmate;
+    private boolean doubleBackToExitPressedOnce;
+    private Handler mHandler = new Handler();
 
 
     // FRAGMENTS
@@ -126,11 +129,17 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
             @Override
             public void onSuccess(DocumentSnapshot documentSnapshot) {
                 mCurrentWorkmate = documentSnapshot.toObject(Compagny.class);
+                if(mCurrentWorkmate == null) startLoginActivity();
                 assert mCurrentWorkmate != null;
-                mUserName = mCurrentWorkmate.getUserName();
-                mUserPhoto = mCurrentWorkmate.getUserPhoto();
-                mUserRestaurant = mCurrentWorkmate.getReservedRestaurant();
-                mUserRestaurantName = mCurrentWorkmate.getReservedRestaurantName();
+                try {
+                    mUserName = mCurrentWorkmate.getUserName();
+                    mUserPhoto = mCurrentWorkmate.getUserPhoto();
+                    mUserRestaurant = mCurrentWorkmate.getReservedRestaurant();
+                    mUserRestaurantName = mCurrentWorkmate.getReservedRestaurantName();
+                }catch(Throwable e) {
+                    e.printStackTrace();
+                    startLoginActivity();
+                }
                 SPAdapter spAdapter = new  SPAdapter(getApplicationContext());
                 spAdapter.setUserId(uid);
                 spAdapter.setUserName(mUserName);
@@ -145,17 +154,6 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
         configureToolBar();
         configureDrawerLayout();
         configureNavigationView();
-        //Bundle bundle = new Bundle();
-        //bundle.putString("userName", mUserName);
-        //bundle.putString("userPhoto", mUserPhoto);
-        //MapFragment mapFragment = new MapFragment();
-        //mapFragment.setArguments(bundle);
-
-        //configureToolBar();
-        //configureDrawerLayout();
-        // //configureViewPagerAndTabs();
-        //configureNavigationView();
-        //checkPermissions();
     }
 
     private void checkPermissions() {
@@ -229,13 +227,27 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
 
     @Override
     public void onBackPressed() {
-        // Handle back click to close menu
-        if (this.mDrawerLayout.isDrawerOpen(GravityCompat.START)) {
-            this.mDrawerLayout.closeDrawer(GravityCompat.START);
-        } else {
-            //super.onBackPressed();
-            Toast.makeText(this, R.string.cant_go_back, Toast.LENGTH_LONG).show();
+        if (doubleBackToExitPressedOnce) {
+            super.onBackPressed();
+            return;
         }
+        this.doubleBackToExitPressedOnce = true;
+        Toast.makeText(this, getResources().getText(R.string.pressBack), Toast.LENGTH_SHORT).show();
+        mHandler.postDelayed(mRunnable, 2000);
+    }
+
+    private final Runnable mRunnable = new Runnable() {
+        @Override
+        public void run() {
+            doubleBackToExitPressedOnce = false;
+        }
+    };
+
+    @Override
+    protected void onDestroy()
+    {
+        super.onDestroy();
+        if (mHandler != null) { mHandler.removeCallbacks(mRunnable); }
     }
 
     // ---------------------

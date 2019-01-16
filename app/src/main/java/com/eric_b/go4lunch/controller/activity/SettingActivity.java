@@ -1,10 +1,16 @@
 package com.eric_b.go4lunch.controller.activity;
 
 import android.app.Activity;
+import android.app.AlarmManager;
 import android.app.Dialog;
+import android.app.PendingIntent;
+import android.content.ComponentName;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentTransaction;
 import android.support.v7.app.ActionBar;
@@ -28,9 +34,16 @@ import android.widget.Toast;
 
 import com.eric_b.go4lunch.LogInActivity;
 import com.eric_b.go4lunch.R;
+import com.eric_b.go4lunch.Utils.NotifBroadcastReceiver;
 import com.eric_b.go4lunch.Utils.SPAdapter;
 import com.eric_b.go4lunch.api.CompagnyHelper;
 import com.eric_b.go4lunch.controller.fragment.ListViewFragment;
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
+import com.google.firebase.auth.FirebaseAuth;
+
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
@@ -59,7 +72,11 @@ public class SettingActivity extends AppCompatActivity {
     private ActionBar mActionBar;
     private SPAdapter mSpAdapter;
     private String mSorting;
-    public static final String BUNDLE_EXTRA ="EXTRA";
+    private String mRestName;
+    private String mRestAdress;
+    private String mRestId;
+    private Boolean mNotification;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -68,6 +85,10 @@ public class SettingActivity extends AppCompatActivity {
         ButterKnife.bind(this);
         mSpAdapter = new SPAdapter(this);
         mSorting = mSpAdapter.getSorting();
+        mRestId = mSpAdapter.getRestaurantReserved();
+        mRestAdress = mSpAdapter.getRestaurantAdresseReserved();
+        mRestName = mSpAdapter.getRestaurantNameReserved();
+        mNotification = mSpAdapter.getNotification();
         configureToolBar();
         configureSorting();
         deleteUserAcountListener();
@@ -137,8 +158,13 @@ public class SettingActivity extends AppCompatActivity {
             public void onClick(View v) {
                 String uid = mSpAdapter.getUserId();
                 CompagnyHelper.deleteWorkmate(uid);
-                Intent intent = new Intent(getApplicationContext(), LogInActivity.class);
-                startActivity(intent);
+                FirebaseAuth.getInstance().getCurrentUser().delete().addOnCompleteListener(new OnCompleteListener<Void>() {
+                    @Override
+                    public void onComplete(@NonNull Task<Void> task) {
+                        Intent intent = new Intent(SettingActivity.this, LogInActivity.class);
+                        startActivity(intent);
+                    }
+                });
             }
         });
         finalDeleteDialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
@@ -167,27 +193,48 @@ public class SettingActivity extends AppCompatActivity {
     }
 
     private void notificationListener(){
+        if(mNotification) mNotificationSwitch.setChecked(true);
+        else mNotificationSwitch.setChecked(false);
+
+
         mNotificationSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                if (mNotificationSwitch.isChecked())
+
+                Intent alarmIntent = new Intent(SettingActivity.this, NotifBroadcastReceiver.class);
+                alarmIntent.putExtra("restName",mSpAdapter.getRestaurantNameReserved());
+                alarmIntent.putExtra("restAdress",mSpAdapter.getRestaurantAdresseReserved());
+                alarmIntent.putExtra("restId",mSpAdapter.getRestaurantReserved());
+
+                PendingIntent pendingIntent = PendingIntent.getBroadcast(SettingActivity.this, 234, alarmIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+                AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
+                Calendar alarmDate = Calendar.getInstance();
+                alarmDate.setTimeInMillis(System.currentTimeMillis());
+                alarmDate.set(Calendar.HOUR_OF_DAY, 12);
+                alarmDate.set(Calendar.MINUTE, 0);
+                alarmDate.set(Calendar.SECOND, 0);
+                // cancel already scheduled reminders
+                SimpleDateFormat sdf = new SimpleDateFormat("yyyy MMM dd HH:mm:ss");
+
+                if (mNotificationSwitch.isChecked()){
+                    mSpAdapter.setNotification(true);
+                    // Enable a receiver
+
+                    Log.d("ressource","hour "+sdf.format(alarmDate.getTime()));
+                    assert alarmManager != null;
+                    alarmManager.setInexactRepeating(AlarmManager.RTC_WAKEUP, alarmDate.getTimeInMillis(), AlarmManager.INTERVAL_DAY, pendingIntent);
                     Toast.makeText(getApplicationContext(), "Notification OK", Toast.LENGTH_LONG).show();
-                if (!mNotificationSwitch.isChecked())
+                }
+
+                if (!mNotificationSwitch.isChecked()){
+                    mSpAdapter.setNotification(false);
+                    if (alarmManager != null) alarmManager.cancel(pendingIntent);
                     Toast.makeText(getApplicationContext(), "Notification dismiss", Toast.LENGTH_LONG).show();
+                }
             }
 
         });
 
-    }
-
-    private void refreshlistViewFrag(){
-        // Create new fragment and transaction
-
-        Fragment newFragment = new ListViewFragment();
-        FrameLayout fl = findViewById(R.id.listViewFragment);
-        fl.removeAllViews();
-        getSupportFragmentManager().beginTransaction()
-                .replace(R.id.listViewFragment, newFragment,"list").commit();
     }
 
 }
