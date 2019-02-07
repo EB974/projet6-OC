@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#F89917</color>
+    <color name="colorPrimaryDark">#00574B</color>
+    <color name="colorAccent">#D81B60</color>
+
+    <color name="textColor">#ffffff</color>
+    <color name="facebookColor">#3C89E2</color>
+    <color name="googleColor">#DC4A38</color>
+
+    <color name="selectedItemColor">#F89917</color>
+    <color name="unSelectedItemColor">#000000</color>
+
+    <color name="whiteBackground">#ffffff</color>
+    <color name="searchTextColor">#000000</color>
+    <color name="hintSearchTextColor">#848282</color>
+    <color name="colorSearchIcon">#5b5959</color>
+    <color name="grey_icon">#868585</color>
+    <color name="dial_background">#ead9bf</color>
+    <color name="star_color">#fae52a</color>
+    <color name="red_button">#fa2a26</color>
+    <color name="green_button">#0cef63</color>
+
+
+</resources>

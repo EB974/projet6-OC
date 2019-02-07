@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal">
+    <ImageView
+        android:layout_width="60dp"
+        android:layout_height="60dp"
+        android:id="@+id/workmate_image"
+        android:layout_marginRight="10dp"
+        android:src="@drawable/no_image"
+        />
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:id="@+id/workmate_name"
+        android:text="@string/workmate_name"
+        android:gravity="center_vertical"
+        android:textSize="@dimen/reserved_item_text_size"/>
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:id="@+id/is_joining"
+        android:text="@string/is_joining"
+        android:gravity="center_vertical"
+        android:textSize="@dimen/reserved_item_text_size"/>
+</LinearLayout>

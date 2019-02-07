@@ -11,7 +11,7 @@ public class CompagnyHelper {
     private static final String COLLECTION_NAME = "compagny1";
 
     // --- COLLECTION REFERENCE ---
-    public static CollectionReference getWorkmateCollection() {
+    private static CollectionReference getWorkmateCollection() {
         return FirebaseFirestore.getInstance().collection(COLLECTION_NAME);
     }
 
@@ -42,6 +42,7 @@ public class CompagnyHelper {
     public static Task<Void> updateWorkmateRestaurantName(String restaurantName, String uid) {
         return CompagnyHelper.getWorkmateCollection().document(uid).update("reservedRestaurantName", restaurantName);
     }
+
 
     public static Task<Void> updateWorkmateImage(String urlPhoto, String uid) {
         return CompagnyHelper.getWorkmateCollection().document(uid).update("urlPhoto", urlPhoto);

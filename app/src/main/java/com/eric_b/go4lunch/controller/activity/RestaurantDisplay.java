@@ -21,16 +21,15 @@ import android.widget.RatingBar;
 import android.widget.TextView;
 import com.bumptech.glide.Glide;
 import com.eric_b.go4lunch.R;
-import com.eric_b.go4lunch.Utils.CountStar;
-import com.eric_b.go4lunch.Utils.PlaceidStream;
-import com.eric_b.go4lunch.Utils.SPAdapter;
+import com.eric_b.go4lunch.utils.CountStar;
+import com.eric_b.go4lunch.utils.PlaceidStream;
+import com.eric_b.go4lunch.utils.SPAdapter;
 import com.eric_b.go4lunch.View.RestaurantReservedAdapter;
 import com.eric_b.go4lunch.api.CompagnyHelper;
 import com.eric_b.go4lunch.api.MappedRestaurantHelper;
 import com.eric_b.go4lunch.modele.Compagny;
 import com.eric_b.go4lunch.modele.placeid.GooglePlaceidPojo;
 import com.eric_b.go4lunch.modele.placeid.Photoid;
-import com.firebase.ui.firestore.FirestoreRecyclerAdapter;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.firestore.DocumentReference;
@@ -78,9 +77,7 @@ public class RestaurantDisplay extends BaseActivity {
     private String mGoogleApiKey;
     private String mName, mAdresse, mPhoneNumber, mWebSite;
     private List<Photoid> mPhoto;
-    //private boolean mCheck = false;
     private String mRestaurantPlaceId;
-    private FirestoreRecyclerAdapter adapter;
     private HashMap mReservedList;
     private int mNumberOfStar;
     private int mNumberOfRating;
@@ -92,7 +89,6 @@ public class RestaurantDisplay extends BaseActivity {
     private Dialog mRateDialog;
     private Boolean mReserved = false;
     private String mUserId;
-    private String mUserOldNameReserved;
 
 
     @Override
@@ -107,7 +103,7 @@ public class RestaurantDisplay extends BaseActivity {
         mUserName = spAdapter.getUserName();
         mUserPhoto = spAdapter.getUserPhoto();
         mUserOldReserved = spAdapter.getRestaurantReserved();
-        mUserOldNameReserved = spAdapter.getRestaurantNameReserved();
+        //String userOldNameReserved = spAdapter.getRestaurantNameReserved();
         mNumberOfStar = 0;
         mNumberOfRating = 0;
         mReservedList= new HashMap<String,Pair>();
@@ -124,9 +120,10 @@ public class RestaurantDisplay extends BaseActivity {
                     return;
                 }
                 if (documentSnapshot != null && documentSnapshot.exists()) {
-                    //mReserved = documentSnapshot.getBoolean("reserved");
-                    mNumberOfStar = Math.round((Long) documentSnapshot.get("numberOfStar"));
-                    mNumberOfRating = Math.round((Long) documentSnapshot.get("numberOfRating"));
+                    Long star = (Long) documentSnapshot.get("numberOfStar");
+                    if(star!=null) mNumberOfStar = Math.round(star);
+                    Long rate = (Long) documentSnapshot.get("numberOfRating");
+                    if(rate != null) mNumberOfRating = Math.round(rate);
                     mNumberOfWorkmate = Integer.valueOf((String) documentSnapshot.get("numberOfWorkmate"));
                     mReservedList = new HashMap<String,String>();
                     mReservedList.putAll((HashMap<String,HashMap<String,String>>) documentSnapshot.get("workmatesReservation"));
@@ -145,7 +142,6 @@ public class RestaurantDisplay extends BaseActivity {
 
 
     private void loadDetailAnswers(String detailId) {
-        //Log.d("Ressource", "detailId "+detailId);
         this.mPlaceidDisposable = PlaceidStream.streamFetchsDetailRestaurants(detailId, "name,formatted_address,photo,formatted_phone_number,website", "restaurant", mGoogleApiKey).subscribeWith(new DisposableObserver<GooglePlaceidPojo>() {
             @Override
             public void onNext(GooglePlaceidPojo placeidResponce) {
@@ -183,6 +179,7 @@ public class RestaurantDisplay extends BaseActivity {
         }
     }
 
+    // call the restaurant
     private void callNumber() {
         mCallButton.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -216,6 +213,7 @@ public class RestaurantDisplay extends BaseActivity {
         }
     }
 
+    // send restaurant's url to the web browser
     private void webDisplay(){
         mWebButton.setOnClickListener(new View.OnClickListener() {
 
@@ -227,6 +225,7 @@ public class RestaurantDisplay extends BaseActivity {
         });
     }
 
+    // show the stars according to the rating
     private void starDisplay() {
         new CountStar(mNumberOfStar, mNumberOfRating);
         switch (CountStar.getcount()) {
@@ -294,7 +293,7 @@ public class RestaurantDisplay extends BaseActivity {
                 mRateDialog.dismiss();
             }
         });
-        mRateDialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        Objects.requireNonNull(mRateDialog.getWindow()).setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
         mRateDialog.show();
     }
 
@@ -306,7 +305,7 @@ public class RestaurantDisplay extends BaseActivity {
                     mCheckImageViewButton.setImageResource(R.drawable.ic_check);
                     mReserved = false;
                     updateWorkmateUnselectedRestaurant();
-                    if(mReservedList.containsKey(mUserId)) mReservedList.remove(mUserId);
+                    mReservedList.remove(mUserId);
                     mNumberOfWorkmate = mReservedList.size();
                     updateSelectedRestaurant(mReserved, mRestaurantPlaceId, mNumberOfStar, mNumberOfRating, String.valueOf(mNumberOfWorkmate), mReservedList);
                     SPAdapter spAdapter = new SPAdapter(getApplicationContext());
@@ -353,13 +352,12 @@ public class RestaurantDisplay extends BaseActivity {
             @Override
             public void onSuccess(DocumentSnapshot documentSnapshot) {
                 Compagny currentWorkmate = documentSnapshot.toObject(Compagny.class);
+                assert currentWorkmate != null;
                 if(currentWorkmate.getReservedRestaurant()!=null){
                     if(currentWorkmate.getReservedRestaurant().equals(mRestaurantPlaceId)){
                         mCheckImageViewButton.setImageResource(R.drawable.ic_checked);
                         mReserved=true;
                     }
-
-
                 }
             }
         });
@@ -370,14 +368,12 @@ public class RestaurantDisplay extends BaseActivity {
         if (this.getCurrentUser() != null) {
             CompagnyHelper.updateWorkmateRestaurant(this.mRestaurantPlaceId,this.getCurrentUser().getUid()).addOnFailureListener(this.onFailureListener());
             CompagnyHelper.updateWorkmateRestaurantName(this.mName,this.getCurrentUser().getUid()).addOnFailureListener(this.onFailureListener());
-            //updateWorkmateList();
         }
     }
 
     //  Update Workmate Selected restaurant
     private void updateWorkmateUnselectedRestaurant(){
         if (this.getCurrentUser() != null) {
-            //updateWorkmateList();
             CompagnyHelper.updateWorkmateRestaurant("",this.getCurrentUser().getUid()).addOnFailureListener(this.onFailureListener());
             CompagnyHelper.updateWorkmateRestaurantName("",this.getCurrentUser().getUid()).addOnFailureListener(this.onFailureListener());
         }
@@ -397,7 +393,6 @@ public class RestaurantDisplay extends BaseActivity {
                 }
                 else{
                     MappedRestaurantHelper.createRestaurant(restaurantPlaceId, reserved, numberOfStar, numberOfRating, numberOfWorkmate, workmateReservation);
-                    //MappedRestaurantHelper.updateRestaurantReserved(restaurantPlaceId,reserved);
                 }
             }
         });
@@ -407,29 +402,17 @@ public class RestaurantDisplay extends BaseActivity {
     }
 
     private void displayWorkmateList(){
-        HashMap<String,HashMap<String,String>> workmateList = new HashMap<>(mReservedList);
-        if(workmateList.containsKey(mUserId))workmateList.remove(mUserId);
-        RestaurantReservedAdapter adapter = new RestaurantReservedAdapter(workmateList, Glide.with(getApplication()), mUserName);
+        HashMap<String,HashMap<String,String>> workmateList = new HashMap<String,HashMap<String,String>>(mReservedList);
+        workmateList.remove(mUserId);
+        RestaurantReservedAdapter adapter = new RestaurantReservedAdapter(workmateList, Glide.with(getApplication()));
         workmateRecyclerView.setAdapter(adapter);
         workmateRecyclerView.setLayoutManager(new LinearLayoutManager(this));
 
     }
 
-    @Override
-    public void onStart() {
-        super.onStart();
-        //adapter.startListening();
-    }
-
-    @Override
-    public void onStop() {
-        super.onStop();
-        //adapter.stopListening();
-    }
-
 
     private void LoadUserRestaurant()  {
-            if (!mUserOldReserved.equals("") && !mUserOldReserved.equals(null)) {
+            if (mUserOldReserved!= null && !mUserOldReserved.equals("")) {
                 FirebaseFirestore db = FirebaseFirestore.getInstance();
                 final DocumentReference docRef = db.collection("mappedRestaurant").document(mUserOldReserved);
                 docRef.addSnapshotListener(new EventListener<DocumentSnapshot>() {

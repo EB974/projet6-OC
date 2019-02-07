@@ -1,26 +1,25 @@
-package com.eric_b.go4lunch;
+package com.eric_b.go4lunch.Auth;
 
 import android.content.Intent;
-import android.os.Build;
 import android.support.annotation.Nullable;
 import android.support.design.widget.CoordinatorLayout;
 import android.support.design.widget.Snackbar;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.Gravity;
-import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
+
+import com.eric_b.go4lunch.R;
 import com.eric_b.go4lunch.api.CompagnyHelper;
 import com.eric_b.go4lunch.controller.activity.BaseActivity;
 import com.eric_b.go4lunch.controller.activity.LunchActivity;
 import com.firebase.ui.auth.AuthUI;
 import java.util.Collections;
 import java.util.Objects;
+
 import com.firebase.ui.auth.ErrorCodes;
 import com.firebase.ui.auth.IdpResponse;
-import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import butterknife.BindView;
@@ -116,17 +115,13 @@ public class LogInActivity extends BaseActivity {
     private void showSnackBar(CoordinatorLayout coordinatorLayout, String message){
         // Create the Snackbar
 
-        LayoutInflater inflater = getLayoutInflater();
+        //LayoutInflater inflater = getLayoutInflater();
         Snackbar snackbar = Snackbar.make(coordinatorLayout, message, Snackbar.LENGTH_LONG);
-        Snackbar.SnackbarLayout layout = (Snackbar.SnackbarLayout) snackbar.getView();
         // get snackbar view
         View viewSnackbar = snackbar.getView();
         // get textview inside snackbar view
         TextView textSnackbar = viewSnackbar.findViewById(android.support.design.R.id.snackbar_text);
         // set text to center
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1)
-            textSnackbar.setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
-        else
             textSnackbar.setGravity(Gravity.CENTER_HORIZONTAL);
         // Show the Snackbar
         snackbar.show();
@@ -143,16 +138,17 @@ public class LogInActivity extends BaseActivity {
                 startLunchActivity();
             }
             if (resultCode != RESULT_OK) {
-                assert response != null;
-                Log.d("SignIn","response "+Objects.requireNonNull(response.getError()).getErrorCode());
+
                 // If errors
                 if (response == null) {
                     showSnackBar(this.mCoordinatorLayout, getString(R.string.error_authentication_canceled));
-                } else if (response.getError().getErrorCode()== ErrorCodes.NO_NETWORK) {
+                } else if (Objects.requireNonNull(response.getError()).getErrorCode()== ErrorCodes.NO_NETWORK) {
                     showSnackBar(this.mCoordinatorLayout, getString(R.string.error_no_internet));
                 } else if (response.getError().getErrorCode() == ErrorCodes.UNKNOWN_ERROR) {
                     showSnackBar(this.mCoordinatorLayout, getString(R.string.error_unknown_error));
                 }
+
+
             }
         }
     }

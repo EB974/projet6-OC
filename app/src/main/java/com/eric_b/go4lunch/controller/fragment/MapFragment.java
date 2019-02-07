@@ -17,7 +17,7 @@ import android.view.View;
 import android.view.ViewGroup;
 
 import com.eric_b.go4lunch.R;
-import com.eric_b.go4lunch.Utils.PlaceStream;
+import com.eric_b.go4lunch.utils.PlaceStream;
 import com.eric_b.go4lunch.controller.activity.RestaurantDisplay;
 import com.eric_b.go4lunch.modele.place.GooglePlacePojo;
 import com.eric_b.go4lunch.modele.place.Result;
@@ -54,29 +54,32 @@ public class MapFragment extends Fragment {
     // STATIC DATA FOR MAP PERMISSION
 
     private static final String RESTAURANT_ID = "placeId";
-    private static final String USER_NAME = "UserName";
-    private static final String USER_PHOTO = "UserPhoto";
-    private static final String USER_RESERVED_RESTAURANT = "UserReservedRestaurant";
+    private static final String LAT = "latitude";
+    private static final String LNG = "longitude";
+    private LatLng mLatLng;
     private DisposableObserver<GooglePlacePojo> mPlaceDisposable;
     private GoogleMap mGoogleMap;
     private static final String TAG = MapFragment.class.getSimpleName();
     private String mGoogleApiKey;
     private String mLocation;
-    private List<Result> mItems;
     private LocationManager mLocationManager;
     private String mProvider;
-    private MapView mMapView;
-    private View mView;
     private Marker mMarker;
-    private HashMap<String, Marker> mMapMarker = new HashMap<String, Marker>();
-    private HashMap<Marker, String> mMapItem = new HashMap<Marker,String>();
+    private HashMap<String, Marker> mMapMarker = new HashMap<>();
+    private HashMap<Marker, String> mMapItem = new HashMap<>();
 
     public MapFragment() {
         // Required empty public constructor
     }
 
-    public static MapFragment newInstance() {
+    public static MapFragment newInstance(LatLng latLng) {
         MapFragment fragment = new MapFragment();
+        Bundle args = new Bundle();
+        if (latLng != null) {
+            args.putDouble(LAT, latLng.latitude);
+            args.putDouble(LNG, latLng.longitude);
+        }
+        fragment.setArguments(args);
         return fragment;
     }
 
@@ -84,29 +87,43 @@ public class MapFragment extends Fragment {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         mGoogleApiKey = getString(R.string.google_maps_key);
+        assert getArguments() != null;
+        if (!getArguments().isEmpty()) {
+            Double latitude = getArguments().getDouble(LAT);
+            Double longitude = getArguments().getDouble(LNG);
+            mLatLng = new LatLng(latitude,longitude);
+            Log.d("ressource", "latlng "+mLatLng);
+        }
     }
 
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-        mView = inflater.inflate(R.layout.fragment_map, container, false);
+        View view = inflater.inflate(R.layout.fragment_map, container, false);
         {
-            mMapView = mView.findViewById(R.id.mapView);
-            mMapView.onCreate(savedInstanceState);
-            mMapView.onResume();
+            MapView mapView = view.findViewById(R.id.mapView);
+            mapView.onCreate(savedInstanceState);
+            mapView.onResume();
             try {
                 MapsInitializer.initialize(Objects.requireNonNull(getActivity()).getApplicationContext());
             } catch (Exception e) {
                 e.printStackTrace();
             }
-            mMapView.getMapAsync(new OnMapReadyCallback() {
+            mapView.getMapAsync(new OnMapReadyCallback() {
                 @Override
                 public void onMapReady(GoogleMap mMap) {
                     mGoogleMap = mMap;
-                    if (ActivityCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                    if (ActivityCompat.checkSelfPermission(Objects.requireNonNull(getContext()), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
                         return;
                     }
                     mGoogleMap.setMyLocationEnabled(true);
+                    mGoogleMap.setOnMyLocationButtonClickListener(new GoogleMap.OnMyLocationButtonClickListener() {
+                        @Override
+                        public boolean onMyLocationButtonClick() {
+                            mLatLng = null;
+                            return false;
+                        }
+                    });
                     // For showing location
                     Criteria criteria = new Criteria();
                     criteria.setAccuracy(Criteria.ACCURACY_FINE);
@@ -125,20 +142,22 @@ public class MapFragment extends Fragment {
                         return;
                     }
                     Location lastLocation = mLocationManager.getLastKnownLocation(mProvider);
-                    if (lastLocation != null) {
-                        LatLng latLng = new LatLng(-20.8821, 55.4507);
-                        //setPosition(new LatLng(lastLocation.getLatitude(), lastLocation.getLongitude()));
-                        setPosition(latLng);
+                    if (lastLocation != null && mLatLng==null) {
+                        setPosition(new LatLng(lastLocation.getLatitude(), lastLocation.getLongitude()));
                     }
+                    if (mLatLng!=null) setPosition(mLatLng);
+
 
                     // listen location update
                     mLocationManager.requestLocationUpdates(mProvider, 60000, 150, new LocationListener() {
 
                         @Override
                         public void onLocationChanged(Location location) {
-                            LatLng latLng = new LatLng(location.getLatitude(), location.getLongitude());
-                            latLng = new LatLng(-20.8821, 55.4507);
-                            setPosition(latLng);
+                            if (mLatLng == null){
+                                LatLng latLng = new LatLng(location.getLatitude(), location.getLongitude());
+                                latLng = new LatLng(48.8534, 2.3488);
+                                setPosition(latLng);
+                            }
                             loadAnswers();
                         }
 
@@ -159,7 +178,7 @@ public class MapFragment extends Fragment {
 
                 }
             });
-            return mView;
+            return view;
         }
     }
 
@@ -174,7 +193,7 @@ public class MapFragment extends Fragment {
     @Override
     public void onDetach() {
         super.onDetach();
-        mPlaceDisposable.dispose();
+        if (mPlaceDisposable!=null) mPlaceDisposable.dispose();
         mGoogleMap = null;
         mLocationManager = null;
     }
@@ -205,9 +224,8 @@ public class MapFragment extends Fragment {
 
     private void PlaceAdapter(List<Result> results) {
         //final Marker marker;
-        mItems = results;
         for (int i = 0; i < results.size(); i++) {
-            final Result item = mItems.get(i);
+            final Result item = results.get(i);
             Double latitude = item.getGeometry().getLocation().getLat();
             Double longitude = item.getGeometry().getLocation().getLng();
             final LatLng latLng = new LatLng(latitude, longitude);
@@ -228,23 +246,21 @@ public class MapFragment extends Fragment {
                         return;
                     }
                     if (documentSnapshot != null && documentSnapshot.exists()) {
-                        //Log.d("ressource", "Current restaurant "+documentSnapshot.getId()+" data: " + documentSnapshot.getData().values());
                         mMarker = mMapMarker.get(documentSnapshot.getId());
-                        //String markerId = marker.getId();
-                        //int id = Integer.valueOf(markerId.substring(1, markerId.length()));
-                        if(documentSnapshot.getBoolean("reserved")){
+
+                        Boolean reserved;
+
+                        reserved =  Objects.requireNonNull(documentSnapshot.getBoolean("reserved"));
+                        if(reserved){
                             mMarker.remove();
                             putMarker(R.drawable.ic_restaurant_green, latLng, restaurantName, restaurantId);
                             mMapMarker.put(item.getPlaceId(),mMarker);
                         }
-                        if(!documentSnapshot.getBoolean("reserved")){
+                        if(!reserved){
                             mMarker.remove();
                             putMarker(R.drawable.ic_restaurant_red, latLng, restaurantName, restaurantId);
                             mMapMarker.put(item.getPlaceId(),mMarker);
                         }
-                    } else {
-
-
                     }
 
                 }
@@ -259,13 +275,6 @@ public class MapFragment extends Fragment {
             @Override
             public boolean onMarkerClick(Marker marker) {
                 String placeId = mMapItem.get(marker);
-                String markerId = marker.getId();
-                int i = Integer.valueOf(markerId.substring(1, markerId.length()));
-                //Result item = mItems.get(i);
-                //String id = mMap.get(marker);
-                //Log.d("ressource", "Listener marker id: "+markerId+" placeId: "+placeId);
-                //startRestaurantDisplayActivity(item.getPlaceId());
-                //Log.d("ressource", "mUserName02 "+currentUser.getUserName()+" -- mUserPhoto02 "+currentUser.getUserPhoto());
                 startRestaurantDisplayActivity(placeId);
                 return false;
             }
@@ -276,12 +285,16 @@ public class MapFragment extends Fragment {
 
     private void putMarker(int icRestaurant, LatLng latLng,String restaurantName, String restaurantId) {
 
-        mMarker = mGoogleMap.addMarker(new MarkerOptions()
-                .position(latLng)
-                .title(restaurantName)
-                .icon(BitmapDescriptorFactory.fromResource(icRestaurant)));
-        mMapItem.put(mMarker,restaurantId);
-        //Log.d("ressource","put id: "+mMarker.getId()+"  rest name: "+restaurantName);
+        try{
+            mMarker = mGoogleMap.addMarker(new MarkerOptions()
+                    .position(latLng)
+                    .title(restaurantName)
+                    .icon(BitmapDescriptorFactory.fromResource(icRestaurant)));
+            mMapItem.put(mMarker,restaurantId);
+        }catch (Exception e){
+            Log.e(TAG,"error "+e);
+        }
+
     }
 
     private void startRestaurantDisplayActivity(String id){

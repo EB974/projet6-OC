@@ -1,49 +1,34 @@
 package com.eric_b.go4lunch.controller.activity;
 
-import android.app.Activity;
 import android.app.AlarmManager;
 import android.app.Dialog;
 import android.app.PendingIntent;
-import android.content.ComponentName;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-import android.support.v4.app.Fragment;
-import android.support.v4.app.FragmentTransaction;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.support.v7.widget.Toolbar;
-import android.util.Log;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.CompoundButton;
-import android.widget.FrameLayout;
-import android.widget.ImageView;
-import android.widget.ListView;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
-import android.widget.RatingBar;
 import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
-
-import com.eric_b.go4lunch.LogInActivity;
+import com.eric_b.go4lunch.Auth.LogInActivity;
 import com.eric_b.go4lunch.R;
-import com.eric_b.go4lunch.Utils.NotifBroadcastReceiver;
-import com.eric_b.go4lunch.Utils.SPAdapter;
+import com.eric_b.go4lunch.utils.NotifBroadcastReceiver;
+import com.eric_b.go4lunch.utils.SPAdapter;
 import com.eric_b.go4lunch.api.CompagnyHelper;
-import com.eric_b.go4lunch.controller.fragment.ListViewFragment;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.FirebaseAuth;
-
-import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.Objects;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
@@ -69,12 +54,8 @@ public class SettingActivity extends AppCompatActivity {
 
     private static final String SORT_BY_DISTANCE = "by_Distance";
     private static final String SORT_BY_RATE = "by_Star";
-    private ActionBar mActionBar;
     private SPAdapter mSpAdapter;
     private String mSorting;
-    private String mRestName;
-    private String mRestAdress;
-    private String mRestId;
     private Boolean mNotification;
 
 
@@ -85,9 +66,6 @@ public class SettingActivity extends AppCompatActivity {
         ButterKnife.bind(this);
         mSpAdapter = new SPAdapter(this);
         mSorting = mSpAdapter.getSorting();
-        mRestId = mSpAdapter.getRestaurantReserved();
-        mRestAdress = mSpAdapter.getRestaurantAdresseReserved();
-        mRestName = mSpAdapter.getRestaurantNameReserved();
         mNotification = mSpAdapter.getNotification();
         configureToolBar();
         configureSorting();
@@ -99,12 +77,12 @@ public class SettingActivity extends AppCompatActivity {
     // Configure Toolbar
     private void configureToolBar() {
         setSupportActionBar(mToolbar);
-        mActionBar = getSupportActionBar();
+        ActionBar actionBar = getSupportActionBar();
         //mActionBar.setDisplayOptions(ActionBar.DISPLAY_SHOW_CUSTOM);
-        assert mActionBar != null;
-        mActionBar.setTitle(R.string.settings_title);
+        assert actionBar != null;
+        actionBar.setTitle(R.string.settings_title);
         //mActionBar.setDisplayShowHomeEnabled(true);
-        mActionBar.setDisplayHomeAsUpEnabled(true);
+        actionBar.setDisplayHomeAsUpEnabled(true);
     }
 
     private void configureSorting(){
@@ -142,8 +120,7 @@ public class SettingActivity extends AppCompatActivity {
     }
 
     private void deleteDialog() {
-        Dialog deleteDialog = new Dialog(this);
-        final Dialog finalDeleteDialog = deleteDialog;
+        final Dialog finalDeleteDialog = new Dialog(this);
         finalDeleteDialog.setContentView(R.layout.delete_dialog_box);
         Button dialValid = finalDeleteDialog.findViewById(R.id.dial_button_ok);
         Button dialCancel = finalDeleteDialog.findViewById(R.id.dial_button_cancel);
@@ -158,7 +135,7 @@ public class SettingActivity extends AppCompatActivity {
             public void onClick(View v) {
                 String uid = mSpAdapter.getUserId();
                 CompagnyHelper.deleteWorkmate(uid);
-                FirebaseAuth.getInstance().getCurrentUser().delete().addOnCompleteListener(new OnCompleteListener<Void>() {
+                Objects.requireNonNull(FirebaseAuth.getInstance().getCurrentUser()).delete().addOnCompleteListener(new OnCompleteListener<Void>() {
                     @Override
                     public void onComplete(@NonNull Task<Void> task) {
                         Intent intent = new Intent(SettingActivity.this, LogInActivity.class);
@@ -167,13 +144,12 @@ public class SettingActivity extends AppCompatActivity {
                 });
             }
         });
-        finalDeleteDialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        Objects.requireNonNull(finalDeleteDialog.getWindow()).setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
         finalDeleteDialog.show();
     }
 
     private void aboutListner(){
-        Dialog aboutDialog = new Dialog(this);
-        final Dialog finalAboutDialog = aboutDialog;
+        final Dialog finalAboutDialog = new Dialog(this);
         finalAboutDialog.setContentView(R.layout.about_dialog_box);
         mAboutTextView.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -185,7 +161,7 @@ public class SettingActivity extends AppCompatActivity {
                         finalAboutDialog.dismiss();
                     }
                 });
-                finalAboutDialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+                Objects.requireNonNull(finalAboutDialog.getWindow()).setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
                 finalAboutDialog.show();
             }
         });
@@ -213,23 +189,22 @@ public class SettingActivity extends AppCompatActivity {
                 alarmDate.set(Calendar.HOUR_OF_DAY, 12);
                 alarmDate.set(Calendar.MINUTE, 0);
                 alarmDate.set(Calendar.SECOND, 0);
-                // cancel already scheduled reminders
-                SimpleDateFormat sdf = new SimpleDateFormat("yyyy MMM dd HH:mm:ss");
+
+
 
                 if (mNotificationSwitch.isChecked()){
                     mSpAdapter.setNotification(true);
-                    // Enable a receiver
 
-                    Log.d("ressource","hour "+sdf.format(alarmDate.getTime()));
+
                     assert alarmManager != null;
                     alarmManager.setInexactRepeating(AlarmManager.RTC_WAKEUP, alarmDate.getTimeInMillis(), AlarmManager.INTERVAL_DAY, pendingIntent);
-                    Toast.makeText(getApplicationContext(), "Notification OK", Toast.LENGTH_LONG).show();
+                    Toast.makeText(getApplicationContext(), getResources().getString(R.string.Notification_OK), Toast.LENGTH_LONG).show();
                 }
 
                 if (!mNotificationSwitch.isChecked()){
                     mSpAdapter.setNotification(false);
                     if (alarmManager != null) alarmManager.cancel(pendingIntent);
-                    Toast.makeText(getApplicationContext(), "Notification dismiss", Toast.LENGTH_LONG).show();
+                    Toast.makeText(getApplicationContext(), getResources().getString(R.string.Notification_dismiss), Toast.LENGTH_LONG).show();
                 }
             }
 

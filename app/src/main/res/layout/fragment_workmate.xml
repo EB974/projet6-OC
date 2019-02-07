@@ -3,7 +3,8 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".controller.fragment.WorkmateFragment">
+    tools:context=".controller.fragment.WorkmateFragment"
+    android:id="@+id/workmateFragment">
 
     <ListView
         android:id="@+id/workmate_fragment_listview"

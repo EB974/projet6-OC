@@ -7,6 +7,7 @@
     android:layout_height="match_parent"
     android:fitsSystemWindows="true"
     tools:openDrawer="start"
+
     tools:context=".controllers.lunchActivity">
 
 
@@ -21,7 +22,7 @@
             android:layout_height="?attr/actionBarSize"
             android:layout_alignParentTop="true"
             android:background="?attr/colorPrimary"
-            app:theme="@style/ToolBarStyle"/>
+            app:theme="@style/ToolBarStyle" />
 
         <android.support.v4.view.ViewPager
             android:id="@+id/lunch_activity_viewpager"
@@ -56,10 +57,6 @@
             app:tabSelectedTextColor="@color/selectedItemColor"
             app:tabTextAppearance="@style/TabLayoutTextAppearance"
             app:tabTextColor="@color/unSelectedItemColor" />
-
-
-
-
 
     </android.support.constraint.ConstraintLayout>
 

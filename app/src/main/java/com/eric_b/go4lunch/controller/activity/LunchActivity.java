@@ -1,67 +1,65 @@
 package com.eric_b.go4lunch.controller.activity;
 
 import android.Manifest;
-import android.app.Activity;
-import android.app.SearchManager;
-import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.PorterDuff;
+import android.location.Criteria;
+import android.location.Location;
+import android.location.LocationManager;
 import android.os.Handler;
 import android.support.annotation.NonNull;
 import android.support.design.widget.NavigationView;
 import android.support.design.widget.TabLayout;
+import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.Fragment;
-import android.support.v4.app.FragmentManager;
-import android.support.v4.app.FragmentTransaction;
-import android.support.v4.content.ContextCompat;
 import android.support.v4.view.GravityCompat;
-
 import android.support.v4.view.ViewPager;
 import android.support.v4.widget.DrawerLayout;
-
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.ActionBarDrawerToggle;
 import android.os.Bundle;
-import android.support.v7.widget.SearchView;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
-
-
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.request.RequestOptions;
-import com.eric_b.go4lunch.LogInActivity;
+import com.eric_b.go4lunch.Auth.LogInActivity;
 import com.eric_b.go4lunch.R;
-import com.eric_b.go4lunch.Utils.SPAdapter;
+import com.eric_b.go4lunch.utils.SPAdapter;
 import com.eric_b.go4lunch.api.CompagnyHelper;
-import com.eric_b.go4lunch.api.GetUserInfo;
 import com.eric_b.go4lunch.controller.fragment.ListViewFragment;
+import com.eric_b.go4lunch.controller.fragment.MapFragment;
+import com.eric_b.go4lunch.controller.fragment.WorkmateFragment;
 import com.eric_b.go4lunch.modele.Compagny;
 import com.firebase.ui.auth.AuthUI;
+import com.google.android.gms.common.GooglePlayServicesNotAvailableException;
+import com.google.android.gms.common.GooglePlayServicesRepairableException;
+import com.google.android.gms.common.api.Status;
+import com.google.android.gms.location.places.Place;
+import com.google.android.gms.location.places.ui.PlaceAutocomplete;
+import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.firebase.firestore.DocumentSnapshot;
-
 import java.util.List;
 import java.util.Objects;
-
 import butterknife.BindView;
 import butterknife.ButterKnife;
 import pub.devrel.easypermissions.EasyPermissions;
 
-import static com.google.android.gms.common.api.internal.LifecycleCallback.getFragment;
-
 public class LunchActivity extends BaseActivity implements NavigationView.OnNavigationItemSelectedListener, EasyPermissions.PermissionCallbacks {
 
-    private static final java.lang.Object Object = 12 ;
+    private final String TAG=this.getClass().getSimpleName() ;
     // DESIGN
     @BindView(R.id.lunch_activity_toolbar)
     Toolbar mToolbar;
@@ -71,24 +69,12 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
     ViewPager mPager;
     @BindView(R.id.activity_lunch_tabs)
     TabLayout mTab;
-    private ActionBar mActionBar;
-    private ActionBarDrawerToggle mToggle;
-    private EditText mSearchEditText;
-    View mView;
-    private TextView mUserMail;
     private TextView mUserNameTextView;
-    private ImageView mUserPhotoImageView;
     private String mUserName;
     private String mUserPhoto;
     private Compagny mCurrentWorkmate;
     private boolean doubleBackToExitPressedOnce;
     private Handler mHandler = new Handler();
-
-
-    // FRAGMENTS
-    private Fragment fragmentMap;
-    private Fragment fragmentListView;
-    private Fragment fragmentWorkmates;
 
     // DATAS
     private static final String PERM_FINE = Manifest.permission.ACCESS_FINE_LOCATION;
@@ -97,25 +83,22 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
     private static final int RC_ALL_PERMS = 130;
     private static final String PERM_TEL = Manifest.permission.CALL_PHONE;
     private static final int RC_CALL_PERMS = 110;
-    private static final int FRAGMENT_MAP = 0;
-    //private static final int FRAGMENT_LISTVIEW = 1;
-    private static final int FRAGMENT_WORKMATE = 2;
-    public static final String FRAGMENT_LISTVIEW = "ListViewFragment";
     static final int SETTING_RESULT = 1;
-    public static final String BUNDLE_EXTRA ="EXTRA";
     private static final String RESTAURANT_ID = "placeId";
     private static final String USER_NAME = "UserName";
     private static final String USER_PHOTO = "UserPhoto";
     private static final int SIGN_OUT_TASK = 10;
     private static final int DELETE_USER_TASK = 20;
     private static final int UPDATE_USERNAME = 30;
+    int PLACE_AUTOCOMPLETE_REQUEST_CODE = 10;
+
 
     // COLORS ITEMS TABS
     String mUnselectedItemColor;
     String mSelectedItemColor;
     private String mUserRestaurant;
     private String mUserRestaurantName;
-    private java.lang.Object ListViewFragment;
+    private Location mLastLocation;
 
 
     @Override
@@ -123,14 +106,16 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_lunch);
         ButterKnife.bind(this);
-        final String uid = this.getCurrentUser().getUid();
+        final String uid = Objects.requireNonNull(this.getCurrentUser()).getUid();
 
+        //get the id of the user
         CompagnyHelper.getWorkmate(uid).addOnSuccessListener(new OnSuccessListener<DocumentSnapshot>() {
             @Override
             public void onSuccess(DocumentSnapshot documentSnapshot) {
                 mCurrentWorkmate = documentSnapshot.toObject(Compagny.class);
                 if(mCurrentWorkmate == null) startLoginActivity();
                 assert mCurrentWorkmate != null;
+                //get the user info
                 try {
                     mUserName = mCurrentWorkmate.getUserName();
                     mUserPhoto = mCurrentWorkmate.getUserPhoto();
@@ -151,11 +136,27 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
 
         });
 
+        Criteria criteria = new Criteria();
+        criteria.setAccuracy(Criteria.ACCURACY_FINE);
+        LocationManager locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
+        assert locationManager != null;
+        String provider = locationManager.getBestProvider(criteria, true);
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+        mLastLocation = locationManager.getLastKnownLocation(provider);
+
         configureToolBar();
         configureDrawerLayout();
         configureNavigationView();
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+    }
+
+// check call and gps permissions
     private void checkPermissions() {
         String[] locationPerms = {PERM_FINE, PERM_COARSE};
         String callPerms = PERM_TEL;
@@ -174,61 +175,58 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
         }
     }
 
-
-
     @Override
     public boolean onCreateOptionsMenu(final Menu menu) {
         MenuInflater inflater = getMenuInflater();
         // Inflate menu to add items to action bar if it is present.
-        inflater.inflate(R.menu.menu_activity_lunch, menu);
-        // Associate searchable configuration with the SearchView
-        SearchManager searchManager = (SearchManager) getSystemService(Context.SEARCH_SERVICE);
-        final SearchView searchView = (SearchView) menu.findItem(R.id.menu_activity_lunch_search).getActionView();
-        assert searchManager != null;
-        searchView.setSearchableInfo(searchManager.getSearchableInfo(getComponentName()));
-        //searchView.setMaxWidth(mActionBar.getHeight());
-
-        mSearchEditText = searchView.findViewById(android.support.v7.appcompat.R.id.search_src_text);
-        searchView.setOnQueryTextFocusChangeListener(new View.OnFocusChangeListener() {
-            /**
-             * Called when the focus state of a view has changed.
-             *
-             * @param v        The view whose state has changed.
-             * @param hasFocus The new focus state of v.
-             */
-            @Override
-            public void onFocusChange(View v, boolean hasFocus) {
-                if (hasFocus) {
-                    mToggle.setDrawerIndicatorEnabled(false);
-                    mActionBar.setTitle(null);
-
-                    // Set searchbox text and background
-                    mSearchEditText.setTextColor(ContextCompat.getColor(getApplicationContext(), R.color.searchTextColor));
-                    mSearchEditText.setHintTextColor(ContextCompat.getColor(getApplicationContext(), R.color.hintSearchTextColor));
-                    searchView.setBackground(ContextCompat.getDrawable(getApplicationContext(),R.drawable.search_edittext_background));
-                    searchView.setX(-10);
-                    searchView.setMaxWidth(1000);
-                    searchView.setScaleY(0.9f);
-                    searchView.setScaleX(0.97f);
-                    //searchView.setLayoutParams(new ActionBar.LayoutParams(Gravity.CENTER));
-                } else {
-                    // Set searchbox text and background
-                    mToggle.setDrawerIndicatorEnabled(true);
-                    mActionBar.setTitle(R.string.lunch_title);
-                    mSearchEditText.setTextColor(ContextCompat.getColor(getApplicationContext(), R.color.textColor));
-                    searchView.setIconified(true);
-                    searchView.setBackground(ContextCompat.getDrawable(getApplicationContext(),R.color.colorPrimary));
-
-                }
-            }
-        });
+        inflater.inflate(R.menu.menu_activity_search, menu);
+        menu.findItem(R.id.menu_cancel).setVisible(false);
         return true;
     }
 
     @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        // Handle item selection
+        switch (item.getItemId()) {
+            case R.id.menu_search:
+                searchScreen();
+              break;
+            case R.id.menu_cancel:
+                refreshWorkmateFrag(null);
+              break;
+            default:
+                return super.onOptionsItemSelected(item);
+        }
+        return true;
+    }
+
+
+    public void searchScreen(){
+        LatLngBounds latLngBounds = new LatLngBounds(
+                new LatLng(mLastLocation.getLatitude()-.01, mLastLocation.getLongitude()-.01),
+                new LatLng(mLastLocation.getLatitude()+.01, mLastLocation.getLongitude()+.01));
+        try {
+            Intent intent =
+                    new PlaceAutocomplete
+                            .IntentBuilder(PlaceAutocomplete.MODE_OVERLAY)
+                            .setBoundsBias(latLngBounds)
+                            .build(LunchActivity.this);
+
+            startActivityForResult(intent, PLACE_AUTOCOMPLETE_REQUEST_CODE);
+        } catch (GooglePlayServicesRepairableException e) {
+            Log.i(TAG, "Google PlayServices Repairable Exception "+e);
+        } catch (GooglePlayServicesNotAvailableException e) {
+            Log.i(TAG, "Google PlayServices NotAvailable Exception "+e);
+        }
+    }
+
+
+    @Override
     public void onBackPressed() {
         if (doubleBackToExitPressedOnce) {
-            super.onBackPressed();
+            moveTaskToBack(true);
+            android.os.Process.killProcess(android.os.Process.myPid());
+            System.exit(1);
             return;
         }
         this.doubleBackToExitPressedOnce = true;
@@ -257,17 +255,19 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
     // Configure Toolbar
     private void configureToolBar() {
         setSupportActionBar(mToolbar);
-        mActionBar = getSupportActionBar();
-        //mActionBar.setDisplayOptions(ActionBar.DISPLAY_SHOW_CUSTOM);
-        assert mActionBar != null;
-        mActionBar.setTitle(R.string.lunch_title);
+        ActionBar actionBar = getSupportActionBar();
+        assert actionBar != null;
+        actionBar.setTitle(R.string.lunch_title);
     }
+
+
+
 
     // Configure Drawer Layout
     private void configureDrawerLayout() {
-        mToggle = new ActionBarDrawerToggle(this, mDrawerLayout, mToolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close);
-        mDrawerLayout.addDrawerListener(mToggle);
-        mToggle.syncState();
+        ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(this, mDrawerLayout, mToolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close);
+        mDrawerLayout.addDrawerListener(toggle);
+        toggle.syncState();
     }
 
     // Configure NavigationView
@@ -275,17 +275,17 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
         NavigationView navigationView = findViewById(R.id.lunch_activity_nav_view);
         navigationView.setNavigationItemSelectedListener(this);
         View header=navigationView.getHeaderView(0);
-        mUserMail =  header.findViewById(R.id.user_email);
+        TextView userMail = header.findViewById(R.id.user_email);
         mUserNameTextView = header.findViewById(R.id.user_name);
-        mUserPhotoImageView = header.findViewById(R.id.user_photo);
-        mUserMail.setText(Objects.requireNonNull(this.getCurrentUser()).getEmail());
+        ImageView userPhotoImageView = header.findViewById(R.id.user_photo);
+        userMail.setText(Objects.requireNonNull(this.getCurrentUser()).getEmail());
 
                 mUserNameTextView.setText(mUserName);
                 try {
                     Glide.with(LunchActivity.this)
                             .load(mUserPhoto)
                             .apply(RequestOptions.circleCropTransform())
-                            .into(mUserPhotoImageView);
+                            .into(userPhotoImageView);
                 } catch (Throwable e) {
                     e.printStackTrace();
                 }
@@ -294,7 +294,7 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
 
     private void configureViewPagerAndTabs() {
         // Set Adapter PageAdapter and glue it together
-        mPager.setAdapter(new PageAdapter(getSupportFragmentManager(),mUserName, mUserPhoto,mUserRestaurant));
+        mPager.setAdapter(new PageAdapter(getSupportFragmentManager()));
         // Glue TabLayout and ViewPager together
         mTab.setupWithViewPager(mPager);
         // Design purpose. Tabs have the same width
@@ -309,24 +309,32 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
 
 
     private void setupTabIcons() {
+
+        mUnselectedItemColor = getResources().getString(R.string.unSelectedItemColor);
+        mSelectedItemColor = getResources().getString(R.string.selectedItemColor);
+
+        //setup the color of tab icon while booting
         Objects.requireNonNull(mTab.getTabAt(0)).setIcon(R.drawable.baseline_map_white);
         Objects.requireNonNull(mTab.getTabAt(1)).setIcon(R.drawable.baseline_view_list_white);
         Objects.requireNonNull(mTab.getTabAt(2)).setIcon(R.drawable.baseline_people_white);
-        mUnselectedItemColor = getResources().getString(R.string.unSelectedItemColor);
-        mSelectedItemColor = getResources().getString(R.string.selectedItemColor);
+
         Objects.requireNonNull(Objects.requireNonNull(mTab.getTabAt(0)).getIcon()).setColorFilter(Color.parseColor(mSelectedItemColor), PorterDuff.Mode.SRC_IN);
         Objects.requireNonNull(Objects.requireNonNull(mTab.getTabAt(1)).getIcon()).setColorFilter(Color.parseColor(mUnselectedItemColor), PorterDuff.Mode.SRC_IN);
         Objects.requireNonNull(Objects.requireNonNull(mTab.getTabAt(2)).getIcon()).setColorFilter(Color.parseColor(mUnselectedItemColor), PorterDuff.Mode.SRC_IN);
 
         mTab.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
+            //set orange color icon when the tab is selected
             @Override
             public void onTabSelected(TabLayout.Tab tab) {
+                assert tab.getIcon() != null;
                 tab.getIcon().setColorFilter(Color.parseColor(mSelectedItemColor), PorterDuff.Mode.SRC_IN);
 
             }
 
+            //set black color icon when the tab is selected
             @Override
             public void onTabUnselected(TabLayout.Tab tab) {
+                assert tab.getIcon() != null;
                 tab.getIcon().setColorFilter(Color.parseColor(mUnselectedItemColor), PorterDuff.Mode.SRC_IN);
             }
 
@@ -339,29 +347,19 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
 
     @Override
     public boolean onNavigationItemSelected(@NonNull MenuItem item) {
-        GetUserInfo getUserInfo = new GetUserInfo(this.getCurrentUser().getUid());
         switch (item.getItemId()){
             case R.id.activity_display_restaurant :
-                CompagnyHelper.getWorkmate(this.getCurrentUser().getUid()).addOnSuccessListener(new OnSuccessListener<DocumentSnapshot>() {
+                CompagnyHelper.getWorkmate(Objects.requireNonNull(this.getCurrentUser()).getUid()).addOnSuccessListener(new OnSuccessListener<DocumentSnapshot>() {
                     @Override
                     public void onSuccess(DocumentSnapshot documentSnapshot) {
                         Compagny currentWorkmate = documentSnapshot.toObject(Compagny.class);
                         assert currentWorkmate != null;
                         mUserNameTextView.setText(currentWorkmate.getUserName());
-                        if (currentWorkmate.getReservedRestaurant()!=null || currentWorkmate.getReservedRestaurant()!=""){
-                            startRestaurantDisplayActivity(currentWorkmate.getReservedRestaurant(), currentWorkmate.getUserName(),currentWorkmate.getUserPhoto());
-                        }
-                        else
-                            Toast.makeText(LunchActivity.this, getResources().getText(R.string.no_restaurant),Toast.LENGTH_LONG).show();
+                        startRestaurantDisplayActivity(currentWorkmate.getReservedRestaurant(), currentWorkmate.getUserName(),currentWorkmate.getUserPhoto());
                     }});
                 break;
             case R.id.activity_settings:
                 startSettingActivity();
-                ///////////////////////////
-                // Reload current fragment
-
-
-                ///////////////////////////
                 break;
             case R.id.logout:
                 logout();
@@ -376,14 +374,14 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
     private void logout() {
         AuthUI.getInstance()
                 .signOut(this)
-                .addOnSuccessListener(this, this.updateUIAfterRESTRequestsCompleted(SIGN_OUT_TASK));
+                .addOnSuccessListener(this, this.updateUIAfterRESTRequestsCompleted());
     }
 
-    private OnSuccessListener<Void> updateUIAfterRESTRequestsCompleted(final int origin){
+    private OnSuccessListener<Void> updateUIAfterRESTRequestsCompleted(){
         return new OnSuccessListener<Void>() {
             @Override
             public void onSuccess(Void aVoid) {
-                switch (origin){
+                switch (LunchActivity.SIGN_OUT_TASK){
                     case UPDATE_USERNAME:
                         //progressBar.setVisibility(View.INVISIBLE);
                         break;
@@ -417,18 +415,40 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
 
     private void startSettingActivity(){
         Intent intent = new Intent(this, SettingActivity.class);
-        //startActivity(intent);
         startActivityForResult(intent,SETTING_RESULT);
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+
         // Check which request we're responding to
-        if (requestCode == SETTING_RESULT && RESULT_OK == resultCode) {
-            refreshlistViewFrag(); //refresh listViewFragment
+
+        //responding to Setting activity
+        if (requestCode == SETTING_RESULT){
+            if(resultCode == RESULT_OK) {
+                refreshListViewFrag(null); //refresh listViewFragment
+            }
+        }
+
+        // responding to place autocomplete search
+        if (requestCode == PLACE_AUTOCOMPLETE_REQUEST_CODE) {
+            if (resultCode == RESULT_OK) {
+
+                Place place = PlaceAutocomplete.getPlace(this, data);
+               switch (mPager.getCurrentItem()){
+                   case 0 : refreshMapFrag(place.getLatLng());
+                    break;
+                   case 1 : refreshListViewFrag(place.getId());
+                    break;
+                   case 2 : refreshWorkmateFrag((String) place.getName());
+                    break;
+                }
+            } else if (resultCode == PlaceAutocomplete.RESULT_ERROR) {
+                Status status = PlaceAutocomplete.getStatus(this, data);
+                Log.i(TAG, status.getStatusMessage());
+            }
         }
     }
-
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] perms, @NonNull int[] grantResults) {
@@ -441,20 +461,40 @@ public class LunchActivity extends BaseActivity implements NavigationView.OnNavi
 
     @Override
     public void onPermissionsGranted(int requestCode, @NonNull List<String> perms) {
-        if (requestCode >= 120) configureViewPagerAndTabs();
+        if (requestCode >= 120) {
+            configureViewPagerAndTabs();
+        }
     }
 
     @Override
     public void onPermissionsDenied(int requestCode, @NonNull List<String> perms) {
     }
 
-    private void refreshlistViewFrag(){
+    private void refreshListViewFrag(String id){
         // Create new fragment and transaction
-        Fragment newFragment = new ListViewFragment();
+        Fragment newFragment =ListViewFragment.newInstance(id);
         FrameLayout fl = findViewById(R.id.listViewFragment);
         fl.removeAllViews();
         getSupportFragmentManager().beginTransaction()
                 .replace(R.id.listViewFragment, newFragment,"list").commitAllowingStateLoss();
+    }
+
+    private void refreshMapFrag(LatLng latLng){
+        // Create new fragment and transaction
+        Fragment newFragment = MapFragment.newInstance(latLng);
+        RelativeLayout fl = findViewById(R.id.mapFragment);
+        fl.removeAllViews();
+        getSupportFragmentManager().beginTransaction()
+                .replace(R.id.mapFragment, newFragment,"map").commitAllowingStateLoss();
+    }
+
+    private void refreshWorkmateFrag(String name){
+        // Create new fragment and transaction
+        Fragment newFragment = WorkmateFragment.newInstance(name);
+        FrameLayout fl = findViewById(R.id.workmateFragment);
+        fl.removeAllViews();
+        getSupportFragmentManager().beginTransaction()
+                .replace(R.id.workmateFragment, newFragment,"workmate").commitAllowingStateLoss();
     }
 
 }

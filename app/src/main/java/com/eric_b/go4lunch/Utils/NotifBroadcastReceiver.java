@@ -1,4 +1,4 @@
-package com.eric_b.go4lunch.Utils;
+package com.eric_b.go4lunch.utils;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;

@@ -1,0 +1,99 @@
+<resources>
+    <string name="app_name">Go4Lunch</string>
+    <string name="title">Find a nice restaurant and invite your co-workers for lunch</string>
+    <string name="app_icone">Application icone</string>
+
+    <string name="facebook_login">Sign in with Facebook</string>
+    <string name="facebook_icon">facebook icon</string>
+    <string name="google_login">Sign in with Google</string>
+    <string name="google_icon">google icon</string>
+    <string name="message">message</string>
+    <string name="error_authentication_canceled">authentication canceled</string>
+    <string name="error_no_internet">authentication impossible no internet</string>
+    <string name="error_unknown_error">authentication impossible unknown error</string>
+    <string name="lunch_title">I\'m Hungry !</string>
+
+    <string name="map_view">Map view</string>
+    <string name="list_view">List view</string>
+    <string name="workmate">workmate</string>
+    <string name="search">Search</string>
+    <string name="navigation_drawer_open">navigation drawer open</string>
+    <string name="navigation_drawer_close">navigation drawer close</string>
+    <string name="selectButton">Select Button</string>
+    <!-- FACEBOOK PURPOSE -->
+    <string name="facebook_application_id" translatable="false">496876910832318</string>
+    <string name="facebook_login_protocol" translatable="false">fb496876910832318</string>
+
+    <!-- GOOGLE MAP PURPOSE -->
+    <string name="google_maps_key" translatable="false">AIzaSyALfrBMN4ibzo7Ysp-1hgN3FXv1Ddx00F0</string>
+
+
+    <!-- STYLE SIGN-IN ACTIVITY -->
+
+    <style name="LoginTheme" parent="AppTheme">
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+        <item name="colorAccent">@color/colorAccent</item>
+        <item name="colorButtonNormal">@color/colorAccent</item>
+        <item name="colorControlNormal">@android:color/darker_gray</item>
+        <item name="colorControlActivated">@android:color/darker_gray</item>
+        <item name="colorControlHighlight">@android:color/darker_gray</item>
+        <item name="android:textColor">@android:color/white</item>
+        <item name="android:textColorPrimary">@android:color/darker_gray</item>
+        <item name="android:textColorSecondary">@android:color/darker_gray</item>
+        <item name="android:windowBackground">@android:color/white</item>
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+        <item name="android:textColorHint">@android:color/white</item>
+    </style>
+
+    <string name="selectedItemColor">#F89917</string>
+    <string name="unSelectedItemColor">#000000</string>
+
+    <string name="search_label">Search</string>
+    <string name="search_hint">Search</string>
+    <string name="settings_description">Search</string>
+    <string name="popup_title_permission_files_access">This application needs location permission to work.</string>
+    <string name="no_image">No image available</string>
+    <string name="restaurant_name">Name of the restaurant</string>
+    <string name="restaurant_description">Description of the restaurant</string>
+    <string name="call">call</string>
+    <string name="like">like</string>
+    <string name="website">website</string>
+    <string name="photo_restaurant">Photo of the restaurant</string>
+    <string name="like_star">like star</string>
+    <string name="open_hour">open hour</string>
+    <string name="distance">distance</string>
+    <string name="nbOfWorkmates">(0)</string>
+    <string name="open">open now</string>
+    <string name="not_open">not open</string>
+    <string name="user_mail">user mail</string>
+    <string name="user_name">user name</string>
+    <string name="your_Lunch">YOUR LUNCH</string>
+    <string name="settings">SETTINGS</string>
+    <string name="logout">LOGOUT</string>
+    <string name="disconnected">You have been disconnected</string>
+    <string name="no_restaurant">You have no restaurant selected for lunch</string>
+    <string name="localisation_request">This app needs gps to work</string>
+    <string name="call_request">this app needs call authorization for full use</string>
+    <string name="all_perm_request">this app needs call and localisation authorization for full use</string>
+    <string name="workmate_name">workmate name</string>
+    <string name="is_joining">\u0020is joining!</string>
+    <string name="rating">Rate this restaurant</string>
+    <string name="settings_title">Setting</string>
+    <string name="deleting_advertissement">Warning, pressing OK will erase all your data</string>
+    <string name="about_text">This application was made as part of the Open ClassRoom DA training.</string>
+    <string name="time_lunch">It\'s time to lunch at</string>
+    <string name="with">with</string>
+    <string name="pressBack">Please click BACK again to exit</string>
+    <string name="not_found">The restaurant was not found in the list</string>
+    <string name="ok">OK</string>
+    <string name="Notification_OK">Notification OK</string>
+    <string name="Notification_dismiss">Notification dismiss</string>
+
+    <!-- Styling Google Map -->
+    <string name="style_json">[ { "featureType": "poi.business", "stylers": [ { "visibility": "off" } ] } ]</string>
+
+
+
+</resources>

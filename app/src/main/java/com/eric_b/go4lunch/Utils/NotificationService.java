@@ -1,4 +1,4 @@
-package com.eric_b.go4lunch.Utils;
+package com.eric_b.go4lunch.utils;
 
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -22,11 +22,7 @@ import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.EventListener;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.FirebaseFirestoreException;
-
-import java.lang.reflect.Array;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 
@@ -83,16 +79,21 @@ class NotificationService extends Service {
                     for(Map.Entry<String, HashMap<String,String>> entry : reservedList.entrySet()) {
                         HashMap<String,String> workmate = entry.getValue();
                         i++;
+                        //send colleagues' names if their number is less than 5
                         if (i<=5) {
-                            if (workmate.get("name") != mUserName){
+                            if (!workmate.get("name").equals(mUserName)){
                                 if (mWorkmates.length()==0)
-                                    mWorkmates += (workmate.get("name"));
-                                else mWorkmates += ", "+(workmate.get("name"));
+                                    mWorkmates = workmate.get("name");
+                                else {
+                                    StringBuilder builder = new StringBuilder();
+                                    mWorkmates =  builder.append(mWorkmates).append( ", ").append(workmate.get("name")).toString();
+                                }
+
                             }
                         }
                     }
+                    //send the number of wormate if their are more than 5
                     if(i>5) mWorkmates += " + "+i+" "+getResources().getString(R.string.workmate);
-                    Log.d("ressource","mWorkmates "+mWorkmates);
                     notificationSend(id);
                 }
             }

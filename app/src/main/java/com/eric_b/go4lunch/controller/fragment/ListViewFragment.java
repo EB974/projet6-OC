@@ -20,11 +20,11 @@ import android.view.View;
 import android.view.ViewGroup;
 import com.bumptech.glide.Glide;
 import com.eric_b.go4lunch.R;
-import com.eric_b.go4lunch.Utils.CountStar;
-import com.eric_b.go4lunch.Utils.Distance;
-import com.eric_b.go4lunch.Utils.PlaceStream;
-import com.eric_b.go4lunch.Utils.RestaurantList;
-import com.eric_b.go4lunch.Utils.SPAdapter;
+import com.eric_b.go4lunch.utils.CountStar;
+import com.eric_b.go4lunch.utils.Distance;
+import com.eric_b.go4lunch.utils.PlaceStream;
+import com.eric_b.go4lunch.utils.RestaurantList;
+import com.eric_b.go4lunch.utils.SPAdapter;
 import com.eric_b.go4lunch.View.ListViewAdapter;
 import com.eric_b.go4lunch.controller.activity.RestaurantDisplay;
 import com.eric_b.go4lunch.modele.place.GooglePlacePojo;
@@ -54,29 +54,28 @@ public class ListViewFragment extends Fragment {
     RecyclerView mRecyclerView;
     private static ListViewAdapter mAdapter;
     private static final String RESTAURANT_ID = "placeId";
-    private static final String USER_NAME = "UserName";
-    private static final String USER_PHOTO = "UserPhoto";
-    private static final String USER_RESERVED_RESTAURANT = "UserReservedRestaurant";
     private static final String SORT_BY_DISTANCE = "by_Distance";
     private static final String SORT_BY_RATE = "by_Star";
-    private int mRecoverPosition = 0;
-    private DisposableObserver<GooglePlacePojo> mPlaceDisposable;
-    private String mLocation;
-    private String mGoogleApiKey;
-    private Location mLastLocation;
-    private String mUserName;
-    private String mUserPhoto;
-    private String mUserReservedRestaurant;
+    private static final String RESTAURANT_SEARCH_ID = "restaurant_Id";
+    private static DisposableObserver<GooglePlacePojo> mPlaceDisposable;
+    private static String mLocation;
+    private static String mGoogleApiKey;
+    private static Location mLastLocation;
     private String mSorting;
-    private RestaurantList mRestaurantList;
+    private static RestaurantList mRestaurantList;
+    static HashMap<String, Integer> mMap = new HashMap<>();
+    static LoadRate mLoadRate;
 
     public ListViewFragment() {
         // Required empty public constructor
     }
 
 
-    public static ListViewFragment newInstance() {
+    public static ListViewFragment newInstance(String id) {
         ListViewFragment fragment = new ListViewFragment();
+        Bundle args = new Bundle();
+        args.putString(RESTAURANT_SEARCH_ID, id);
+        fragment.setArguments(args);
         return fragment;
     }
 
@@ -89,6 +88,10 @@ public class ListViewFragment extends Fragment {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         mGoogleApiKey = getString(R.string.google_maps_key);
+        assert getArguments() != null;
+        if (!getArguments().isEmpty()) {
+            String restaurantId = getArguments().getString(RESTAURANT_SEARCH_ID);
+        }
         SPAdapter spAdapter = new SPAdapter(Objects.requireNonNull(getActivity()));
         mSorting = spAdapter.getSorting();
         if (mSorting.equals("")) mSorting = SORT_BY_DISTANCE;
@@ -103,7 +106,6 @@ public class ListViewFragment extends Fragment {
         mLastLocation = locationManager.getLastKnownLocation(provider);
         if (mLastLocation != null) {
             LatLng latLng = new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude());
-            latLng = new LatLng(-20.8821, 55.4507);
         mLocation =  String.valueOf(latLng);
         mLocation = mLocation.substring(10,mLocation.length()-1);
         }
@@ -115,9 +117,17 @@ public class ListViewFragment extends Fragment {
         ButterKnife.bind(this, view);
         //configureRecyclerView();
         if (savedInstanceState!= null) { //recover the recyclerView position
-            mRecoverPosition = savedInstanceState.getInt("POSITION");
+            int recoverPosition = savedInstanceState.getInt("POSITION");
         }
+
+        mLoadRate = new LoadRate();
         new LoadAnswers().execute(); //load response from GoogleMap API
+        mLoadRate.setListener(new LoadRate.LoadRateListener() {
+            @Override
+            public void onLoadRateFinished(RestaurantList restaurantList) {
+                updateDisplay();
+            }
+        });
         return view;
     }
 
@@ -136,11 +146,11 @@ public class ListViewFragment extends Fragment {
         mRecyclerView.addItemDecoration(itemDecoration);
     }
 
-    private class LoadAnswers extends AsyncTask<String, String, HashMap<String, Integer>> {
+    private static class LoadAnswers extends AsyncTask<String, String, HashMap<String, Integer>> {
         Result resulForDistance;
         GooglePlacePojo results;
-        final HashMap<String, Integer> map = new HashMap<>();
-        final int[] numberOfStar = new int[1];
+        //final HashMap<String, Integer> map = new HashMap<>();
+        //final int[] numberOfStar = new int[1];
 
         @Override
         protected HashMap<String, Integer> doInBackground(String... strings) {
@@ -169,42 +179,37 @@ public class ListViewFragment extends Fragment {
                                 restaurantLocation.setLongitude(resulForDistance.getGeometry().getLocation().getLng());
                                 Distance distance = new Distance(mLastLocation, restaurantLocation);
                                 int restdist = distance.getDistance();
-                                map.put(restId,restdist);
+                                mMap.put(restId,restdist);
                             }
-                            //final DocumentReference docRef = db.collection("mappedRestaurant").document(entry.getKey());
-                            new LoadRate(map).execute();
+                            mLoadRate.execute();
                         } catch (Throwable e) {
                             e.printStackTrace();
                         }
 
                     }
             });
-            return map;
+            return mMap;
         }
 
         @Override
         protected void onPostExecute(HashMap<String, Integer> map) {
             super.onPostExecute(map);
-
-
         }
-        //mAdapter.updateAnswers(restaurantList);
-
     }
 
 
-    private class LoadRate extends AsyncTask<String, String, String> {
+    private static class LoadRate extends AsyncTask<String, String, String> {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
+        private LoadRateListener RateListener;
         final int[] rating = new int[1];
-        HashMap<String, Integer> map;
-        public LoadRate(HashMap<String, Integer> map) {
-            this.map = map;
+        //int numberOfWorkmate;
+        LoadRate() {
         }
 
         @Override
         protected String doInBackground(String... strings) {
             final CollectionReference docRef = db.collection("mappedRestaurant");
-            for (final Map.Entry<String,Integer> entry : map.entrySet()){
+            for (final Map.Entry<String,Integer> entry : mMap.entrySet()){
 
                 docRef.document(entry.getKey()).get().onSuccessTask(new SuccessContinuation<DocumentSnapshot, Object>() {
                     @NonNull
@@ -213,40 +218,61 @@ public class ListViewFragment extends Fragment {
                         mRestaurantList.setId(entry.getKey());
                         mRestaurantList.setDistance(entry.getValue());
                         if (documentSnapshot != null && documentSnapshot.exists()) {
-                            int numberOfStar = Math.round((Long) documentSnapshot.get("numberOfStar"));
-                            int numberOfRating = Math.round((Long) documentSnapshot.get("numberOfRating"));
+                            Long star = (Long) documentSnapshot.get("numberOfStar");
+                            int numberOfStar = 0;
+                            int numberOfRating = 0;
+                            if(star != null) numberOfStar = Math.round(star);
+                            Long rate = (Long) documentSnapshot.get("numberOfRating");
+                            if(rate != null) numberOfRating = Math.round(rate);
                             new CountStar(numberOfStar, numberOfRating);
                             rating[0] = CountStar.getcount();
                         }
                         else rating[0] = 0;
                         mRestaurantList.setRate(rating[0]);
-                        if (mRestaurantList.getSize()==map.size()){
-
-                            if (mSorting.equals(SORT_BY_RATE)) {
-                                mRestaurantList.sortRestaurant("rate");
-                                configureRecyclerView();
-                                mAdapter.updateAnswers(mRestaurantList);
-                            }
-                            if (mSorting.equals(SORT_BY_DISTANCE)) {
-                                mRestaurantList.sortRestaurant("distance");
-                                configureRecyclerView();
-                                mAdapter.updateAnswers(mRestaurantList);
+                        if (mRestaurantList.getSize()==mMap.size()){
+                            Log.d("ressource","map "+mMap);
+                            if (RateListener != null) {
+                                RateListener.onLoadRateFinished(mRestaurantList);
                             }
                         }
-                        return null;
+                      return null;
                     }
                 });
             }
             return null;
         }
 
+
         @Override
         protected void onPostExecute(String s) {
             super.onPostExecute(s);
         }
 
+        void setListener(LoadRateListener listener) {
+            this.RateListener = listener;
+        }
+
+        public interface LoadRateListener {
+            void onLoadRateFinished(RestaurantList restaurantList);
+        }
+
     }
 
+
+    private void updateDisplay(){
+
+        if (mSorting.equals(SORT_BY_RATE)) {
+        mRestaurantList.sortRestaurant("rate");
+        configureRecyclerView();
+        mAdapter.updateAnswers(mRestaurantList);
+        }
+        if (mSorting.equals(SORT_BY_DISTANCE)) {
+        mRestaurantList.sortRestaurant("distance");
+        configureRecyclerView();
+        mAdapter.updateAnswers(mRestaurantList);
+        }
+
+    }
 
     @Override
     public void onDetach() {

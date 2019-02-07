@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<searchable xmlns:android="http://schemas.android.com/apk/res/android"
+    android:label="@string/search_label"
+    android:hint="@string/search_hint"
+    android:inputType="textAutoComplete"
+    android:voiceSearchMode="showVoiceSearchButton|launchRecognizer"
+    android:searchSuggestIntentAction="android.intent.action.VIEW"
+    android:includeInGlobalSearch="true"
+    android:searchButtonText="@string/search"
+    android:searchSettingsDescription="@string/settings_description"
+    android:searchSuggestAuthority="com.eric_b.go4lunch.api.search_suggestion_provider"
+    >
+</searchable>

@@ -15,25 +15,26 @@ import android.widget.TextView;
 import com.bumptech.glide.RequestManager;
 import com.bumptech.glide.request.RequestOptions;
 import com.eric_b.go4lunch.R;
-import com.eric_b.go4lunch.Utils.CalculateOpeningHours;
-import com.eric_b.go4lunch.Utils.CountStar;
-import com.eric_b.go4lunch.Utils.Distance;
-import com.eric_b.go4lunch.Utils.PlaceidStream;
-import com.eric_b.go4lunch.Utils.RestaurantList;
-import com.eric_b.go4lunch.api.MappedRestaurantHelper;
+import com.eric_b.go4lunch.utils.CalculateOpeningHours;
+import com.eric_b.go4lunch.utils.PlaceidStream;
+import com.eric_b.go4lunch.utils.RestaurantList;
 import com.eric_b.go4lunch.modele.placeid.GooglePlaceidPojo;
 import com.eric_b.go4lunch.modele.placeid.OpeningHoursid;
 import com.eric_b.go4lunch.modele.placeid.Photoid;
+import com.google.android.gms.tasks.SuccessContinuation;
+import com.google.android.gms.tasks.Task;
+import com.google.firebase.firestore.CollectionReference;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.EventListener;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.FirebaseFirestoreException;
-import com.google.protobuf.StringValue;
+import com.google.firebase.firestore.QuerySnapshot;
 
-import java.lang.ref.WeakReference;
+import org.w3c.dom.Document;
+
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Objects;
 
 import javax.annotation.Nullable;
 
@@ -43,7 +44,7 @@ import io.reactivex.observers.DisposableObserver;
 public class ListViewAdapter extends RecyclerView.Adapter<ListViewAdapter.ViewHolder> {
 
 
-    //private List<Result> mItems;
+    private static final String TAG = ListViewAdapter.class.getSimpleName();
     private RestaurantList mItems;
     private PostItemListener mItemListener;
     private RequestManager mGlide;
@@ -112,12 +113,13 @@ public class ListViewAdapter extends RecyclerView.Adapter<ListViewAdapter.ViewHo
 
     @Override
     public void onBindViewHolder(@NonNull final ListViewAdapter.ViewHolder holder, int position) {
-        final String restaurantId = mItems.getId((int)mList.get(position));
-        final int restaurantDistance = mItems.getDistance((int)mList.get(position));
-        final int restaurantRate = mItems.getRate((int)mList.get(position));
+        final String restaurantId = mItems.getId((int) mList.get(position));
+        final int restaurantDistance = mItems.getDistance((int) mList.get(position));
+        final int restaurantRate = mItems.getRate((int) mList.get(position));
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        final DocumentReference docRef = db.collection("mappedRestaurant").document(restaurantId);
 
         DisposableObserver<GooglePlaceidPojo> mPlaceidDisposable = PlaceidStream.streamFetchsDetailRestaurants(restaurantId, "name,formatted_address,photo,formatted_phone_number,website,opening_hours,id", "restaurant", mKey).subscribeWith(new DisposableObserver<GooglePlaceidPojo>() {
-
             @Override
             public void onNext(GooglePlaceidPojo placeidPojo) {
                 try {
@@ -132,6 +134,7 @@ public class ListViewAdapter extends RecyclerView.Adapter<ListViewAdapter.ViewHo
                 CalculateOpeningHours calcOpeningHours = new CalculateOpeningHours(mOpeningHoursid);
                 holder.mRestaurantOpenHour.setText(calcOpeningHours.getDate());
                 holder.mRestaurantDistance.setText(String.format("%sm", restaurantDistance));
+
                 try {
                     String photoheight = "70";
                     String photowidth = "70";
@@ -180,13 +183,24 @@ public class ListViewAdapter extends RecyclerView.Adapter<ListViewAdapter.ViewHo
 
             @Override
             public void onComplete() {
-
             }
 
         });
 
+        docRef.addSnapshotListener(new EventListener<DocumentSnapshot>() {
+            @Override
+            public void onEvent(@Nullable DocumentSnapshot documentSnapshot, @Nullable FirebaseFirestoreException e) {
+                if (e != null) {
+                    Log.w(TAG, "Listen failed.", e);
+                    return;
+                }
+                if (documentSnapshot != null && documentSnapshot.exists()) {
+                    String numberOfWorkmate = documentSnapshot.getString("numberOfWorkmate");
+                    holder.mNbOfWorkmate.setText(String.format("(%s)",numberOfWorkmate));
+                }
+            }
+        });
     }
-
 
     @Override
     public int getItemCount() {
@@ -199,7 +213,7 @@ public class ListViewAdapter extends RecyclerView.Adapter<ListViewAdapter.ViewHo
     }
 
     private String getResults(int adapterPosition) {
-        return (String) mItems.getId(adapterPosition);
+        return mItems.getId((int)mList.get(adapterPosition));
     }
 
     public interface PostItemListener {

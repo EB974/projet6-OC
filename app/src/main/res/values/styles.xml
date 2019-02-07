@@ -1,0 +1,62 @@
+<resources>
+
+    <!-- Base application theme. -->
+    <style name="AppTheme" parent="Theme.AppCompat.Light.NoActionBar">
+        <!-- Customize your theme here. -->
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+        <item name="colorAccent">@color/colorAccent</item>
+        <item name="android:itemBackground">@color/colorPrimary</item>
+        <item name="drawerArrowStyle">@style/DrawerIcon</item>
+    </style>
+
+    <!-- LoginActivity theme. -->
+    <style name="SignTheme" parent="Theme.AppCompat.Light.NoActionBar">
+        <!-- Customize your theme here. -->
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+        <item name="colorAccent">@color/colorAccent</item>
+    </style>
+
+    <!-- Toolbar theme. -->
+    <style name="ToolBarStyle" parent="AppTheme">
+        <item name="android:textColorPrimary">@android:color/white</item>
+        <item name="colorControlNormal">@color/colorPrimary</item>
+    </style>
+
+    <style name="ActionBar"
+        parent="@style/Widget.AppCompat.Light.ActionBar.Solid.Inverse">
+        <item name="android:background">@android:color/white</item>
+        <item name="background">@android:color/white</item>
+    </style>
+
+    <style name="DrawerIcon" parent="Widget.AppCompat.DrawerArrowToggle">
+        <item name="color">@android:color/white</item>
+    </style>
+
+    <!-- SearchStyle theme. -->
+    <style name="SearchStyle" parent="AppTheme">
+        <item name="android:textColorPrimary">@android:color/white</item>
+
+    </style>
+
+    <!-- TabLayout theme. -->
+    <style name="TabLayoutTextAppearance" parent="TextAppearance.AppCompat.Widget.ActionBar.Title.Inverse">
+        <item name="android:textSize">17sp</item>
+    </style>
+
+
+    <!-- Toolbar theme. -->
+    <style name="MenuDrawerStyle" parent="TextAppearance.AppCompat.Menu">
+        <item name="android:textColorPrimary">@android:color/white</item>
+        <item name="android:background">@color/colorPrimary</item>
+    </style>
+
+    <style name="SearchViewStyle" parent="@style/Widget.AppCompat.SearchView.ActionBar">
+        <item name="android:textColor">@color/searchTextColor</item>
+        <item name="android:textColorHint">@color/textColor</item>
+        <item name="android:layout_marginRight">20dp</item>
+        <item name="android:background">@drawable/search_edittext_background</item>
+    </style>
+
+</resources>
